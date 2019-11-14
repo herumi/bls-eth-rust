@@ -26,6 +26,23 @@ extern "C" {
         size: usize,
     ) -> c_int;
 
+    fn blsSignHashWithDomain(
+        sig: *mut Signature,
+        seckey: *const SecretKey,
+        hashWithDomain: *const u8,
+    ) -> c_int;
+    fn blsVerifyHashWithDomain(
+        sig: *const Signature,
+        pubKey: *const PublicKey,
+        hashWithDomain: *const u8,
+    ) -> c_int;
+    fn blsVerifyAggregatedHashWithDomain(
+        aggSig: *const Signature,
+        pubVec: *const PublicKey,
+        hashWithDomain: *const u8,
+        n: usize,
+    ) -> c_int;
+
     fn blsSecretKeyIsEqual(lhs: *const SecretKey, rhs: *const SecretKey) -> i32;
     fn blsPublicKeyIsEqual(lhs: *const PublicKey, rhs: *const PublicKey) -> i32;
     fn blsSignatureIsEqual(lhs: *const Signature, rhs: *const Signature) -> i32;
@@ -52,6 +69,8 @@ const MCLBN_FR_UNIT_SIZE: usize = 4;
 const BLS_COMPILER_TIME_VAR_ADJ: usize = 200;
 const MCLBN_COMPILED_TIME_VAR: c_int =
     (MCLBN_FR_UNIT_SIZE * 10 + MCLBN_FP_UNIT_SIZE + BLS_COMPILER_TIME_VAR_ADJ) as c_int;
+
+const HASH_WITH_DOMAIN_SIZE: usize = 40;
 
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident) => {
@@ -174,11 +193,25 @@ impl SecretKey {
         }
         v
     }
-    // buf.len() == 96
     pub fn sign_hash(&self, buf: &[u8]) -> Option<Signature> {
+        if buf.len() != 96 {
+            return None;
+        }
         let mut v = unsafe { Signature::uninit() };
         unsafe {
             if blsSignHash(&mut v, self, buf.as_ptr(), buf.len()) == 0 {
+                return Some(v);
+            }
+        }
+        None
+    }
+    pub fn sign_hash_with_domain(&self, buf: &[u8]) -> Option<Signature> {
+        if buf.len() != HASH_WITH_DOMAIN_SIZE {
+            return None;
+        }
+        let mut v = unsafe { Signature::uninit() };
+        unsafe {
+            if blsSignHashWithDomain(&mut v, self, buf.as_ptr()) == 0 {
                 return Some(v);
             }
         }
@@ -188,6 +221,22 @@ impl SecretKey {
 
 impl Signature {
     pub fn verify_hash(&self, pubkey: *const PublicKey, buf: &[u8]) -> bool {
+        if buf.len() != 96 {
+            return false;
+        }
         unsafe { blsVerifyHash(self, pubkey, buf.as_ptr(), buf.len()) == 1 }
+    }
+    pub fn verify_hash_with_domain(&self, pubkey: *const PublicKey, buf: &[u8]) -> bool {
+        if buf.len() != HASH_WITH_DOMAIN_SIZE {
+            return false;
+        }
+        unsafe { blsVerifyHashWithDomain(self, pubkey, buf.as_ptr()) == 1 }
+    }
+    pub fn verify_aggregated_hash_with_domain(&self, pubkeys: &[PublicKey], bufs: &[u8]) -> bool {
+        let n = pubkeys.len();
+        if bufs.len() != HASH_WITH_DOMAIN_SIZE * n {
+            return false;
+        }
+        unsafe { blsVerifyAggregatedHashWithDomain(self, pubkeys.as_ptr(), bufs.as_ptr(), n) == 1 }
     }
 }

@@ -11,7 +11,6 @@ macro_rules! serialize_test {
 }
 
 #[test]
-#[allow(non_snake_case)]
 fn test() {
     let seckey_serialized = [
         71, 184, 25, 45, 119, 191, 135, 27, 98, 232, 120, 89, 214, 83, 146, 39, 37, 114, 74, 92, 3,
@@ -49,4 +48,14 @@ fn test() {
     serialize_test! {SecretKey, seckey};
     serialize_test! {PublicKey, pubkey};
     serialize_test! {Signature, sig};
+    test_aggregate();
+}
+
+fn test_aggregate() {
+    let mut seckey = unsafe { SecretKey::uninit() };
+    seckey.set_by_csprng();
+    let pubkey = seckey.get_publickey();
+    let hd = [1 as u8; 40];
+    let sig = seckey.sign_hash_with_domain(&hd).unwrap();
+    assert!(sig.verify_hash_with_domain(&pubkey, &hd));
 }
