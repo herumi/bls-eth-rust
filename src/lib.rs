@@ -29,17 +29,17 @@ extern "C" {
     fn blsSignHashWithDomain(
         sig: *mut Signature,
         seckey: *const SecretKey,
-        hashWithDomain: *const u8,
+        msg: *const Message,
     ) -> c_int;
     fn blsVerifyHashWithDomain(
         sig: *const Signature,
         pubKey: *const PublicKey,
-        hashWithDomain: *const u8,
+        msg: *const Message,
     ) -> c_int;
     fn blsVerifyAggregatedHashWithDomain(
         aggSig: *const Signature,
-        pubVec: *const PublicKey,
-        hashWithDomain: *const u8,
+        pubs: *const PublicKey,
+        msgs: *const Message,
         n: usize,
     ) -> c_int;
 
@@ -55,8 +55,8 @@ extern "C" {
     fn blsPublicKeyDeserialize(x: *mut PublicKey, buf: *const u8, bufSize: usize) -> usize;
     fn blsSignatureDeserialize(x: *mut Signature, buf: *const u8, bufSize: usize) -> usize;
 
-	fn blsPublicKeyAdd(pubkey: *mut PublicKey, x: *const PublicKey);
-	fn blsSignatureAdd(sig: *mut Signature, x: *const Signature);
+    fn blsPublicKeyAdd(pubkey: *mut PublicKey, x: *const PublicKey);
+    fn blsSignatureAdd(sig: *mut Signature, x: *const Signature);
 
 }
 
@@ -73,7 +73,9 @@ const BLS_COMPILER_TIME_VAR_ADJ: usize = 200;
 const MCLBN_COMPILED_TIME_VAR: c_int =
     (MCLBN_FR_UNIT_SIZE * 10 + MCLBN_FP_UNIT_SIZE + BLS_COMPILER_TIME_VAR_ADJ) as c_int;
 
-pub const MSG_SIZE: usize = 40;
+pub const HASH_SIZE: usize = 32;
+pub const DOMAIN_SIZE: usize = 8;
+pub const HASH_AND_DOMAIN_SIZE: usize = HASH_SIZE + DOMAIN_SIZE;
 
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident) => {
@@ -127,6 +129,22 @@ macro_rules! serialize_impl {
 
 pub fn init() -> bool {
     unsafe { blsInit(CurveType::BLS12_381 as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
+}
+
+#[derive(Default, Debug, Clone, Copy)]
+#[repr(C)]
+pub struct Message {
+    pub hash: [u8; HASH_SIZE],
+    pub domain: [u8; DOMAIN_SIZE],
+}
+
+impl Message {
+    pub fn zero() -> Message {
+        Default::default()
+    }
+    pub unsafe fn uninit() -> Message {
+        std::mem::uninitialized()
+    }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -208,13 +226,10 @@ impl SecretKey {
         }
         None
     }
-    pub fn sign_hash_with_domain(&self, buf: &[u8]) -> Option<Signature> {
-        if buf.len() != MSG_SIZE {
-            return None;
-        }
+    pub fn sign(&self, msg: &Message) -> Option<Signature> {
         let mut v = unsafe { Signature::uninit() };
         unsafe {
-            if blsSignHashWithDomain(&mut v, self, buf.as_ptr()) == 0 {
+            if blsSignHashWithDomain(&mut v, self, msg) == 0 {
                 return Some(v);
             }
         }
@@ -223,9 +238,11 @@ impl SecretKey {
 }
 
 impl PublicKey {
-	pub fn add_assign(&mut self, x: *const PublicKey) {
-		unsafe { blsPublicKeyAdd(self, x); }
-	}
+    pub fn add_assign(&mut self, x: *const PublicKey) {
+        unsafe {
+            blsPublicKeyAdd(self, x);
+        }
+    }
 }
 
 impl Signature {
@@ -235,20 +252,19 @@ impl Signature {
         }
         unsafe { blsVerifyHash(self, pubkey, buf.as_ptr(), buf.len()) == 1 }
     }
-    pub fn verify_hash_with_domain(&self, pubkey: *const PublicKey, buf: &[u8]) -> bool {
-        if buf.len() != MSG_SIZE {
-            return false;
-        }
-        unsafe { blsVerifyHashWithDomain(self, pubkey, buf.as_ptr()) == 1 }
+    pub fn verify(&self, pubkey: *const PublicKey, msg: &Message) -> bool {
+        unsafe { blsVerifyHashWithDomain(self, pubkey, msg) == 1 }
     }
-    pub fn verify_aggregated_hash_with_domain(&self, pubkeys: &[PublicKey], bufs: &[u8]) -> bool {
+    pub fn verify_aggregated(&self, pubkeys: &[PublicKey], msgs: &[Message]) -> bool {
         let n = pubkeys.len();
-        if bufs.len() != MSG_SIZE * n {
+        if msgs.len() != n {
             return false;
         }
-        unsafe { blsVerifyAggregatedHashWithDomain(self, pubkeys.as_ptr(), bufs.as_ptr(), n) == 1 }
+        unsafe { blsVerifyAggregatedHashWithDomain(self, pubkeys.as_ptr(), msgs.as_ptr(), n) == 1 }
     }
-	pub fn add_assign(&mut self, x: *const Signature) {
-		unsafe { blsSignatureAdd(self, x); }
-	}
+    pub fn add_assign(&mut self, x: *const Signature) {
+        unsafe {
+            blsSignatureAdd(self, x);
+        }
+    }
 }

@@ -53,24 +53,26 @@ fn test_aggregate() {
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
     let pubkey = seckey.get_publickey();
-    let hd = [1 as u8; MSG_SIZE];
-    let sig = seckey.sign_hash_with_domain(&hd).unwrap();
-    assert!(sig.verify_hash_with_domain(&pubkey, &hd));
+    let mut msg = Message::zero();
+    msg.hash[0] = 1;
+    let sig = seckey.sign(&msg).unwrap();
+    assert!(sig.verify(&pubkey, &msg));
 
-	const N:usize = 10;
-	let mut pubs = [unsafe { PublicKey::uninit()}; N];
-	let mut sigs = [unsafe { Signature::uninit()}; N];
+    const N: usize = 10;
+    let mut pubs = [unsafe { PublicKey::uninit() }; N];
+    let mut sigs = [unsafe { Signature::uninit() }; N];
 
-	let mut hds = [0 as u8; MSG_SIZE * N];
-	for i in 0..N {
-		seckey.set_by_csprng();
-		pubs[i] = seckey.get_publickey();
-		hds[MSG_SIZE * i] = i as u8;
-		sigs[i] = seckey.sign_hash_with_domain(&hds[MSG_SIZE * i..MSG_SIZE * (i+1)]).unwrap();
-	}
-	let mut agg_sig = sigs[0];
-	for i in 1..N {
-		agg_sig.add_assign(&sigs[i])
-	}
-	assert!(agg_sig.verify_aggregated_hash_with_domain(&pubs[..], &hds[..]));
+    let mut msgs: [Message; N] = [Message::zero(); N];
+    for i in 0..N {
+        seckey.set_by_csprng();
+        pubs[i] = seckey.get_publickey();
+        msgs[i].hash[0] = i as u8;
+        msgs[i].domain[0] = i as u8;
+        sigs[i] = seckey.sign(&msgs[i]).unwrap();
+    }
+    let mut agg_sig = sigs[0];
+    for i in 1..N {
+        agg_sig.add_assign(&sigs[i])
+    }
+    assert!(agg_sig.verify_aggregated(&pubs[..], &msgs[..]));
 }
