@@ -35,8 +35,6 @@ fn test() {
     assert_eq!(mem::size_of::<Signature>(), 48 * 2 * 3);
     assert!(init());
 
-    //    let mut seckey = unsafe { SecretKey::uninit() };
-    //    seckey.deserialize(&seckey_serialized);
     let seckey = SecretKey::from_serialized(&seckey_serialized).unwrap();
 
     let pubkey = seckey.get_publickey();
@@ -55,7 +53,24 @@ fn test_aggregate() {
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
     let pubkey = seckey.get_publickey();
-    let hd = [1 as u8; 40];
+    let hd = [1 as u8; MSG_SIZE];
     let sig = seckey.sign_hash_with_domain(&hd).unwrap();
     assert!(sig.verify_hash_with_domain(&pubkey, &hd));
+
+	const N:usize = 10;
+	let mut pubs = [unsafe { PublicKey::uninit()}; N];
+	let mut sigs = [unsafe { Signature::uninit()}; N];
+
+	let mut hds = [0 as u8; MSG_SIZE * N];
+	for i in 0..N {
+		seckey.set_by_csprng();
+		pubs[i] = seckey.get_publickey();
+		hds[MSG_SIZE * i] = i as u8;
+		sigs[i] = seckey.sign_hash_with_domain(&hds[MSG_SIZE * i..MSG_SIZE * (i+1)]).unwrap();
+	}
+	let mut agg_sig = sigs[0];
+	for i in 1..N {
+		agg_sig.add_assign(&sigs[i])
+	}
+	assert!(agg_sig.verify_aggregated_hash_with_domain(&pubs[..], &hds[..]));
 }

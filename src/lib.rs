@@ -55,6 +55,9 @@ extern "C" {
     fn blsPublicKeyDeserialize(x: *mut PublicKey, buf: *const u8, bufSize: usize) -> usize;
     fn blsSignatureDeserialize(x: *mut Signature, buf: *const u8, bufSize: usize) -> usize;
 
+	fn blsPublicKeyAdd(pubkey: *mut PublicKey, x: *const PublicKey);
+	fn blsSignatureAdd(sig: *mut Signature, x: *const Signature);
+
 }
 
 pub enum CurveType {
@@ -70,7 +73,7 @@ const BLS_COMPILER_TIME_VAR_ADJ: usize = 200;
 const MCLBN_COMPILED_TIME_VAR: c_int =
     (MCLBN_FR_UNIT_SIZE * 10 + MCLBN_FP_UNIT_SIZE + BLS_COMPILER_TIME_VAR_ADJ) as c_int;
 
-const HASH_WITH_DOMAIN_SIZE: usize = 40;
+pub const MSG_SIZE: usize = 40;
 
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident) => {
@@ -126,13 +129,13 @@ pub fn init() -> bool {
     unsafe { blsInit(CurveType::BLS12_381 as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
 pub struct SecretKey {
     d: [u64; MCLBN_FR_UNIT_SIZE],
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
 pub struct PublicKey {
     x: [u64; MCLBN_FP_UNIT_SIZE],
@@ -140,7 +143,7 @@ pub struct PublicKey {
     z: [u64; MCLBN_FP_UNIT_SIZE],
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Signature {
     x: [u64; MCLBN_FP_UNIT_SIZE * 2],
@@ -206,7 +209,7 @@ impl SecretKey {
         None
     }
     pub fn sign_hash_with_domain(&self, buf: &[u8]) -> Option<Signature> {
-        if buf.len() != HASH_WITH_DOMAIN_SIZE {
+        if buf.len() != MSG_SIZE {
             return None;
         }
         let mut v = unsafe { Signature::uninit() };
@@ -219,6 +222,12 @@ impl SecretKey {
     }
 }
 
+impl PublicKey {
+	pub fn add_assign(&mut self, x: *const PublicKey) {
+		unsafe { blsPublicKeyAdd(self, x); }
+	}
+}
+
 impl Signature {
     pub fn verify_hash(&self, pubkey: *const PublicKey, buf: &[u8]) -> bool {
         if buf.len() != 96 {
@@ -227,16 +236,19 @@ impl Signature {
         unsafe { blsVerifyHash(self, pubkey, buf.as_ptr(), buf.len()) == 1 }
     }
     pub fn verify_hash_with_domain(&self, pubkey: *const PublicKey, buf: &[u8]) -> bool {
-        if buf.len() != HASH_WITH_DOMAIN_SIZE {
+        if buf.len() != MSG_SIZE {
             return false;
         }
         unsafe { blsVerifyHashWithDomain(self, pubkey, buf.as_ptr()) == 1 }
     }
     pub fn verify_aggregated_hash_with_domain(&self, pubkeys: &[PublicKey], bufs: &[u8]) -> bool {
         let n = pubkeys.len();
-        if bufs.len() != HASH_WITH_DOMAIN_SIZE * n {
+        if bufs.len() != MSG_SIZE * n {
             return false;
         }
         unsafe { blsVerifyAggregatedHashWithDomain(self, pubkeys.as_ptr(), bufs.as_ptr(), n) == 1 }
     }
+	pub fn add_assign(&mut self, x: *const Signature) {
+		unsafe { blsSignatureAdd(self, x); }
+	}
 }
