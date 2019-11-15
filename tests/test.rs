@@ -55,8 +55,8 @@ fn test_aggregate() {
     let pubkey = seckey.get_publickey();
     let mut msg = Message::zero();
     msg.hash[0] = 1;
-    let sig = seckey.sign(&msg).unwrap();
-    assert!(sig.verify(&pubkey, &msg));
+    let sig = seckey.sign_message(&msg).unwrap();
+    assert!(sig.verify_message(&pubkey, &msg));
 
     const N: usize = 10;
     let mut pubs = [unsafe { PublicKey::uninit() }; N];
@@ -68,11 +68,11 @@ fn test_aggregate() {
         pubs[i] = seckey.get_publickey();
         msgs[i].hash[0] = i as u8;
         msgs[i].domain[0] = i as u8;
-        sigs[i] = seckey.sign(&msgs[i]).unwrap();
+        sigs[i] = seckey.sign_message(&msgs[i]).unwrap();
     }
     let mut agg_sig = sigs[0];
     for i in 1..N {
         agg_sig.add_assign(&sigs[i])
     }
-    assert!(agg_sig.verify_aggregated(&pubs[..], &msgs[..]));
+    assert!(agg_sig.verify_aggregated_message(&pubs[..], &msgs[..]));
 }

@@ -226,7 +226,7 @@ impl SecretKey {
         }
         None
     }
-    pub fn sign(&self, msg: &Message) -> Option<Signature> {
+    pub fn sign_message(&self, msg: &Message) -> Option<Signature> {
         let mut v = unsafe { Signature::uninit() };
         unsafe {
             if blsSignHashWithDomain(&mut v, self, msg) == 0 {
@@ -252,10 +252,10 @@ impl Signature {
         }
         unsafe { blsVerifyHash(self, pubkey, buf.as_ptr(), buf.len()) == 1 }
     }
-    pub fn verify(&self, pubkey: *const PublicKey, msg: &Message) -> bool {
+    pub fn verify_message(&self, pubkey: *const PublicKey, msg: &Message) -> bool {
         unsafe { blsVerifyHashWithDomain(self, pubkey, msg) == 1 }
     }
-    pub fn verify_aggregated(&self, pubkeys: &[PublicKey], msgs: &[Message]) -> bool {
+    pub fn verify_aggregated_message(&self, pubkeys: &[PublicKey], msgs: &[Message]) -> bool {
         let n = pubkeys.len();
         if msgs.len() != n {
             return false;
