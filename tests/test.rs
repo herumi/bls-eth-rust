@@ -33,7 +33,7 @@ fn test() {
     assert_eq!(mem::size_of::<SecretKey>(), 32);
     assert_eq!(mem::size_of::<PublicKey>(), 48 * 3);
     assert_eq!(mem::size_of::<Signature>(), 48 * 2 * 3);
-    assert!(init());
+    assert!(init(CurveType::BLS12_381));
 
     let seckey = SecretKey::from_serialized(&seckey_serialized).unwrap();
 

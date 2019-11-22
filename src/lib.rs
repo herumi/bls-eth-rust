@@ -127,8 +127,8 @@ macro_rules! serialize_impl {
     };
 }
 
-pub fn init() -> bool {
-    unsafe { blsInit(CurveType::BLS12_381 as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
+pub fn init(curve_type: CurveType) -> bool {
+    unsafe { blsInit(curve_type as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
