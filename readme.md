@@ -14,6 +14,12 @@ copy from [bls-eth-go-binary/bls/lib](https://github.com/herumi/bls-eth-go-binar
 env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo test
 ```
 
+# How to run benchs
+
+```
+env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo bench
+```
+
 # License
 
 modified new BSD License
