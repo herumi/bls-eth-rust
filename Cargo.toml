@@ -4,6 +4,9 @@ version = "0.0.1"
 authors = ["MITSUNARI Shigeo <herumi@nifty.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bench]]
+name = "bls381_benches"
+harness = false
 
 [dependencies]
+criterion = "0.3.0"
