@@ -2,7 +2,6 @@ extern crate criterion;
 
 use bls_eth_rust::*;
 use criterion::{black_box, criterion_group, criterion_main, Benchmark, Criterion};
-use std::mem;
 
 pub const SECRET_KEY_SERIALIZED: [u8; 32] = [
     71, 184, 25, 45, 119, 191, 135, 27, 98, 232, 120, 89, 214, 83, 146, 39, 37, 114, 74, 92, 3, 26,
@@ -55,7 +54,6 @@ fn compression(c: &mut Criterion) {
     init(CurveType::BLS12_381);
     let seckey = SecretKey::from_serialized(&SECRET_KEY_SERIALIZED).unwrap();
 
-    let pubkey = seckey.get_publickey();
     let sig = seckey.sign_hash(&MSG).unwrap();
 
     c.bench(
