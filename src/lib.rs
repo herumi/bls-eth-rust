@@ -101,12 +101,12 @@ macro_rules! serialize_impl {
             pub fn deserialize(&mut self, buf: &[u8]) -> bool {
                 unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
             }
-            pub fn from_serialized(buf: &[u8]) -> Option<$t> {
+            pub fn from_serialized(buf: &[u8]) -> Result<$t, String> {
                 let mut v = unsafe { <$t>::uninit() };
                 if v.deserialize(buf) {
-                    return Some(v);
+                    return Ok(v);
                 }
-                None
+                Err("bad data".to_string())
             }
             pub fn serialize(&self) -> Vec<u8> {
                 let size = unsafe { $size } as usize;
@@ -200,12 +200,12 @@ impl SecretKey {
     pub fn set_hex_str(&mut self, s: &str) -> bool {
         unsafe { blsSecretKeySetHexStr(self, s.as_ptr(), s.len()) > 0 }
     }
-    pub fn from_hex_str(s: &str) -> Option<SecretKey> {
+    pub fn from_hex_str(s: &str) -> Result<SecretKey, String> {
         let mut v = unsafe { SecretKey::uninit() };
         if v.set_hex_str(&s) {
-            return Some(v);
+            return Ok(v);
         }
-        None
+        Err(format!("bad str {}", s))
     }
     pub fn get_publickey(&self) -> PublicKey {
         let mut v = unsafe { PublicKey::uninit() };
@@ -214,26 +214,26 @@ impl SecretKey {
         }
         v
     }
-    pub fn sign_hash(&self, buf: &[u8]) -> Option<Signature> {
+    pub fn sign_hash(&self, buf: &[u8]) -> Result<Signature, String> {
         if buf.len() != 96 {
-            return None;
+            return Err(format!("len must 96({})", buf.len()));
         }
         let mut v = unsafe { Signature::uninit() };
         unsafe {
             if blsSignHash(&mut v, self, buf.as_ptr(), buf.len()) == 0 {
-                return Some(v);
+                return Ok(v);
             }
         }
-        None
+        Err("blsSignHash".to_string())
     }
-    pub fn sign_message(&self, msg: &Message) -> Option<Signature> {
+    pub fn sign_message(&self, msg: &Message) -> Result<Signature, String> {
         let mut v = unsafe { Signature::uninit() };
         unsafe {
             if blsSignHashWithDomain(&mut v, self, msg) == 0 {
-                return Some(v);
+                return Ok(v);
             }
         }
-        None
+        Err("blsSignHashWithDomain".to_string())
     }
 }
 
