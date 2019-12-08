@@ -13,11 +13,21 @@ copy from [bls-eth-go-binary/bls/lib](https://github.com/herumi/bls-eth-go-binar
 ```
 env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo test
 ```
+For example, on Linux,
+
+```
+mkdir work
+cd work
+git clone https://github.com/herumi/bls-eth-go-binary
+git clone https://github.com/herumi/bls-eth-rust
+cd bls-eth-rust
+env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo test
+```
 
 # How to run benchs
 
 ```
-env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo bench
+env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo bench
 ```
 
 # License
