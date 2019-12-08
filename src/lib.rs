@@ -67,6 +67,13 @@ pub enum CurveType {
     BLS12_381 = 5,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum BlsError {
+	InvalidData,
+	BadSize,
+	InternalError,
+}
+
 const MCLBN_FP_UNIT_SIZE: usize = 6;
 const MCLBN_FR_UNIT_SIZE: usize = 4;
 const BLS_COMPILER_TIME_VAR_ADJ: usize = 200;
@@ -101,12 +108,12 @@ macro_rules! serialize_impl {
             pub fn deserialize(&mut self, buf: &[u8]) -> bool {
                 unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
             }
-            pub fn from_serialized(buf: &[u8]) -> Result<$t, String> {
+            pub fn from_serialized(buf: &[u8]) -> Result<$t, BlsError> {
                 let mut v = unsafe { <$t>::uninit() };
                 if v.deserialize(buf) {
                     return Ok(v);
                 }
-                Err("bad data".to_string())
+                Err(BlsError::InvalidData)
             }
             pub fn serialize(&self) -> Vec<u8> {
                 let size = unsafe { $size } as usize;
@@ -200,12 +207,12 @@ impl SecretKey {
     pub fn set_hex_str(&mut self, s: &str) -> bool {
         unsafe { blsSecretKeySetHexStr(self, s.as_ptr(), s.len()) > 0 }
     }
-    pub fn from_hex_str(s: &str) -> Result<SecretKey, String> {
+    pub fn from_hex_str(s: &str) -> Result<SecretKey, BlsError> {
         let mut v = unsafe { SecretKey::uninit() };
         if v.set_hex_str(&s) {
             return Ok(v);
         }
-        Err(format!("bad str {}", s))
+        Err(BlsError::InvalidData)
     }
     pub fn get_publickey(&self) -> PublicKey {
         let mut v = unsafe { PublicKey::uninit() };
@@ -214,9 +221,9 @@ impl SecretKey {
         }
         v
     }
-    pub fn sign_hash(&self, buf: &[u8]) -> Result<Signature, String> {
+    pub fn sign_hash(&self, buf: &[u8]) -> Result<Signature, BlsError> {
         if buf.len() != 96 {
-            return Err(format!("len must 96({})", buf.len()));
+            return Err(BlsError::BadSize);
         }
         let mut v = unsafe { Signature::uninit() };
         unsafe {
@@ -224,16 +231,16 @@ impl SecretKey {
                 return Ok(v);
             }
         }
-        Err("blsSignHash".to_string())
+        Err(BlsError::InternalError)
     }
-    pub fn sign_message(&self, msg: &Message) -> Result<Signature, String> {
+    pub fn sign_message(&self, msg: &Message) -> Result<Signature, BlsError> {
         let mut v = unsafe { Signature::uninit() };
         unsafe {
             if blsSignHashWithDomain(&mut v, self, msg) == 0 {
                 return Ok(v);
             }
         }
-        Err("blsSignHashWithDomain".to_string())
+        Err(BlsError::InternalError)
     }
 }
 
