@@ -13,19 +13,6 @@ extern "C" {
     fn blsSecretKeySetByCSPRNG(x: *mut SecretKey);
     fn blsSecretKeySetHexStr(x: *mut SecretKey, buf: *const u8, bufSize: usize) -> c_int;
     fn blsGetPublicKey(y: *mut PublicKey, x: *const SecretKey);
-    fn blsSignHash(
-        sig: *mut Signature,
-        seckey: *const SecretKey,
-        h: *const u8,
-        size: usize,
-    ) -> c_int;
-    fn blsVerifyHash(
-        sig: *const Signature,
-        pubkey: *const PublicKey,
-        h: *const u8,
-        size: usize,
-    ) -> c_int;
-
     fn blsSignHashWithDomain(
         sig: *mut Signature,
         seckey: *const SecretKey,
@@ -69,9 +56,9 @@ pub enum CurveType {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum BlsError {
-	InvalidData,
-	BadSize,
-	InternalError,
+    InvalidData,
+    BadSize,
+    InternalError,
 }
 
 const MCLBN_FP_UNIT_SIZE: usize = 6;
@@ -221,18 +208,6 @@ impl SecretKey {
         }
         v
     }
-    pub fn sign_hash(&self, buf: &[u8]) -> Result<Signature, BlsError> {
-        if buf.len() != 96 {
-            return Err(BlsError::BadSize);
-        }
-        let mut v = unsafe { Signature::uninit() };
-        unsafe {
-            if blsSignHash(&mut v, self, buf.as_ptr(), buf.len()) == 0 {
-                return Ok(v);
-            }
-        }
-        Err(BlsError::InternalError)
-    }
     pub fn sign_message(&self, msg: &Message) -> Result<Signature, BlsError> {
         let mut v = unsafe { Signature::uninit() };
         unsafe {
@@ -253,12 +228,6 @@ impl PublicKey {
 }
 
 impl Signature {
-    pub fn verify_hash(&self, pubkey: *const PublicKey, buf: &[u8]) -> bool {
-        if buf.len() != 96 {
-            return false;
-        }
-        unsafe { blsVerifyHash(self, pubkey, buf.as_ptr(), buf.len()) == 1 }
-    }
     pub fn verify_message(&self, pubkey: *const PublicKey, msg: &Message) -> bool {
         unsafe { blsVerifyHashWithDomain(self, pubkey, msg) == 1 }
     }
