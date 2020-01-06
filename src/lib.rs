@@ -78,6 +78,7 @@ macro_rules! common_impl {
                 unsafe { $is_equal_fn(self, rhs) == 1 }
             }
         }
+        impl Eq for $t {}
         impl $t {
             pub fn zero() -> $t {
                 Default::default()
