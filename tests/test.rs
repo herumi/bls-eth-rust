@@ -14,11 +14,10 @@ macro_rules! serialize_test {
 }
 
 #[test]
-fn test() {
+fn test_sign_serialize() {
     assert_eq!(mem::size_of::<SecretKey>(), 32);
     assert_eq!(mem::size_of::<PublicKey>(), 48 * 3);
     assert_eq!(mem::size_of::<Signature>(), 48 * 2 * 3);
-    //assert!(init(CurveType::BLS12_381));
 
     let msg = Message::zero();
     let mut seckey = unsafe { SecretKey::uninit() };
@@ -63,14 +62,12 @@ fn test_aggregate() {
 
 #[test]
 fn test_from_serialized_signature() {
-    //assert!(init(CurveType::BLS12_381));
     let data = [0u8; 0];
     let sig = Signature::from_serialized(&data);
 }
 
 #[test]
 fn test_from_serialized_publickey() {
-    //assert!(init(CurveType::BLS12_381));
     let data = [0u8; 0];
     let pk = PublicKey::from_serialized(&data);
 }

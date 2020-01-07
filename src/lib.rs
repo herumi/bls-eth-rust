@@ -125,7 +125,7 @@ macro_rules! serialize_impl {
                     n = $serialize_fn(buf.as_mut_ptr(), size, self);
                 }
                 if n == 0 {
-                    panic!("serialize");
+                    panic!("BLS serialization error");
                 }
                 unsafe {
                     buf.set_len(n);
