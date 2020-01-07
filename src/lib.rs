@@ -118,6 +118,9 @@ macro_rules! serialize_impl {
                 }
                 buf
             }
+            pub fn as_bytes(&self) -> Vec<u8> {
+                self.serialize()
+            }
         }
     };
 }
