@@ -1,4 +1,5 @@
 //use std::mem::MaybeUninit;
+use std::sync::Once;
 use std::os::raw::c_int;
 
 #[link(name = "bls384_256", kind = "static")]
@@ -71,10 +72,16 @@ pub const HASH_SIZE: usize = 32;
 pub const DOMAIN_SIZE: usize = 8;
 pub const HASH_AND_DOMAIN_SIZE: usize = HASH_SIZE + DOMAIN_SIZE;
 
+// Used to call blsInit only once.
+static INIT: Once = Once::new();
+
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident) => {
         impl PartialEq for $t {
             fn eq(&self, rhs: &Self) -> bool {
+                INIT.call_once(|| {
+                    init(CurveType::BLS12_381);
+                });
                 unsafe { $is_equal_fn(self, rhs) == 1 }
             }
         }
@@ -93,6 +100,9 @@ macro_rules! serialize_impl {
     ($t:ty, $size:expr, $serialize_fn:ident, $deserialize_fn:ident) => {
         impl $t {
             pub fn deserialize(&mut self, buf: &[u8]) -> bool {
+                INIT.call_once(|| {
+                    init(CurveType::BLS12_381);
+                });
                 unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
             }
             pub fn from_serialized(buf: &[u8]) -> Result<$t, BlsError> {
@@ -103,6 +113,10 @@ macro_rules! serialize_impl {
                 Err(BlsError::InvalidData)
             }
             pub fn serialize(&self) -> Vec<u8> {
+                INIT.call_once(|| {
+                    init(CurveType::BLS12_381);
+                });
+
                 let size = unsafe { $size } as usize;
                 let mut buf: Vec<u8> = Vec::with_capacity(size);
                 let n: usize;
@@ -121,6 +135,7 @@ macro_rules! serialize_impl {
     };
 }
 
+// Only call once
 pub fn init(curve_type: CurveType) -> bool {
     unsafe { blsInit(curve_type as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
@@ -189,9 +204,15 @@ serialize_impl![
 
 impl SecretKey {
     pub fn set_by_csprng(&mut self) {
+        INIT.call_once(|| {
+            init(CurveType::BLS12_381);
+        });
         unsafe { blsSecretKeySetByCSPRNG(self) }
     }
     pub fn set_hex_str(&mut self, s: &str) -> bool {
+        INIT.call_once(|| {
+            init(CurveType::BLS12_381);
+        });
         unsafe { blsSecretKeySetHexStr(self, s.as_ptr(), s.len()) > 0 }
     }
     pub fn from_hex_str(s: &str) -> Result<SecretKey, BlsError> {
@@ -202,6 +223,9 @@ impl SecretKey {
         Err(BlsError::InvalidData)
     }
     pub fn get_publickey(&self) -> PublicKey {
+        INIT.call_once(|| {
+            init(CurveType::BLS12_381);
+        });
         let mut v = unsafe { PublicKey::uninit() };
         unsafe {
             blsGetPublicKey(&mut v, self);
@@ -209,6 +233,9 @@ impl SecretKey {
         v
     }
     pub fn sign_message(&self, msg: &Message) -> Result<Signature, BlsError> {
+        INIT.call_once(|| {
+            init(CurveType::BLS12_381);
+        });
         let mut v = unsafe { Signature::uninit() };
         unsafe {
             if blsSignHashWithDomain(&mut v, self, msg) == 0 {
@@ -221,6 +248,9 @@ impl SecretKey {
 
 impl PublicKey {
     pub fn add_assign(&mut self, x: *const PublicKey) {
+        INIT.call_once(|| {
+            init(CurveType::BLS12_381);
+        });
         unsafe {
             blsPublicKeyAdd(self, x);
         }
@@ -229,9 +259,15 @@ impl PublicKey {
 
 impl Signature {
     pub fn verify_message(&self, pubkey: *const PublicKey, msg: &Message) -> bool {
+        INIT.call_once(|| {
+            init(CurveType::BLS12_381);
+        });
         unsafe { blsVerifyHashWithDomain(self, pubkey, msg) == 1 }
     }
     pub fn verify_aggregated_message(&self, pubkeys: &[PublicKey], msgs: &[Message]) -> bool {
+        INIT.call_once(|| {
+            init(CurveType::BLS12_381);
+        });
         let n = pubkeys.len();
         if msgs.len() != n {
             return false;
@@ -239,6 +275,9 @@ impl Signature {
         unsafe { blsVerifyAggregatedHashWithDomain(self, pubkeys.as_ptr(), msgs.as_ptr(), n) == 1 }
     }
     pub fn add_assign(&mut self, x: *const Signature) {
+        INIT.call_once(|| {
+            init(CurveType::BLS12_381);
+        });
         unsafe {
             blsSignatureAdd(self, x);
         }

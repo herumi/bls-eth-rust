@@ -7,6 +7,9 @@ macro_rules! serialize_test {
         let mut y: $t = unsafe { <$t>::uninit() };
         assert!(y.deserialize(&buf));
         assert_eq!($x, y);
+
+        let z = <$t>::from_serialized(&buf);
+        assert_eq!($x, z.unwrap());
     };
 }
 
@@ -15,7 +18,7 @@ fn test() {
     assert_eq!(mem::size_of::<SecretKey>(), 32);
     assert_eq!(mem::size_of::<PublicKey>(), 48 * 3);
     assert_eq!(mem::size_of::<Signature>(), 48 * 2 * 3);
-    assert!(init(CurveType::BLS12_381));
+    //assert!(init(CurveType::BLS12_381));
 
     let msg = Message::zero();
     let mut seckey = unsafe { SecretKey::uninit() };
@@ -27,9 +30,9 @@ fn test() {
     serialize_test! {SecretKey, seckey};
     serialize_test! {PublicKey, pubkey};
     serialize_test! {Signature, sig};
-    test_aggregate();
 }
 
+#[test]
 fn test_aggregate() {
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
@@ -56,4 +59,18 @@ fn test_aggregate() {
         agg_sig.add_assign(&sigs[i])
     }
     assert!(agg_sig.verify_aggregated_message(&pubs[..], &msgs[..]));
+}
+
+#[test]
+fn test_from_serialized_signature() {
+    //assert!(init(CurveType::BLS12_381));
+    let data = [0u8; 0];
+    let sig = Signature::from_serialized(&data);
+}
+
+#[test]
+fn test_from_serialized_publickey() {
+    //assert!(init(CurveType::BLS12_381));
+    let data = [0u8; 0];
+    let pk = PublicKey::from_serialized(&data);
 }
