@@ -1,0 +1,31 @@
+
+[package]
+name = "bls_eth_rust-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2018"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies.bls_eth_rust]
+path = ".."
+[dependencies.libfuzzer-sys]
+git = "https://github.com/rust-fuzz/libfuzzer-sys.git"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_signature_serialization"
+path = "fuzz_targets/fuzz_signature_serialization.rs"
+
+[[bin]]
+name = "fuzz_publickey_serialization"
+path = "fuzz_targets/fuzz_publickey_serialization.rs"
+
+[[bin]]
+name = "fuzz_secretkey_serialization"
+path = "fuzz_targets/fuzz_secretkey_serialization.rs"
