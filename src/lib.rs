@@ -74,13 +74,16 @@ pub const HASH_AND_DOMAIN_SIZE: usize = HASH_SIZE + DOMAIN_SIZE;
 
 // Used to call blsInit only once.
 static INIT: Once = Once::new();
+fn init_library() {
+    init(CurveType::BLS12_381);
+}
 
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident) => {
         impl PartialEq for $t {
             fn eq(&self, rhs: &Self) -> bool {
                 INIT.call_once(|| {
-                    init(CurveType::BLS12_381);
+                    init_library();
                 });
                 unsafe { $is_equal_fn(self, rhs) == 1 }
             }
@@ -102,7 +105,7 @@ macro_rules! serialize_impl {
         impl $t {
             pub fn deserialize(&mut self, buf: &[u8]) -> bool {
                 INIT.call_once(|| {
-                    init(CurveType::BLS12_381);
+                    init_library();
                 });
                 unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
             }
@@ -115,7 +118,7 @@ macro_rules! serialize_impl {
             }
             pub fn serialize(&self) -> Vec<u8> {
                 INIT.call_once(|| {
-                    init(CurveType::BLS12_381);
+                    init_library();
                 });
 
                 let size = unsafe { $size } as usize;
@@ -209,13 +212,13 @@ serialize_impl![
 impl SecretKey {
     pub fn set_by_csprng(&mut self) {
         INIT.call_once(|| {
-            init(CurveType::BLS12_381);
+            init_library();
         });
         unsafe { blsSecretKeySetByCSPRNG(self) }
     }
     pub fn set_hex_str(&mut self, s: &str) -> bool {
         INIT.call_once(|| {
-            init(CurveType::BLS12_381);
+            init_library();
         });
         unsafe { blsSecretKeySetHexStr(self, s.as_ptr(), s.len()) > 0 }
     }
@@ -228,7 +231,7 @@ impl SecretKey {
     }
     pub fn get_publickey(&self) -> PublicKey {
         INIT.call_once(|| {
-            init(CurveType::BLS12_381);
+            init_library();
         });
         let mut v = unsafe { PublicKey::uninit() };
         unsafe {
@@ -238,7 +241,7 @@ impl SecretKey {
     }
     pub fn sign_message(&self, msg: &Message) -> Result<Signature, BlsError> {
         INIT.call_once(|| {
-            init(CurveType::BLS12_381);
+            init_library();
         });
         let mut v = unsafe { Signature::uninit() };
         unsafe {
@@ -253,7 +256,7 @@ impl SecretKey {
 impl PublicKey {
     pub fn add_assign(&mut self, x: *const PublicKey) {
         INIT.call_once(|| {
-            init(CurveType::BLS12_381);
+            init_library();
         });
         unsafe {
             blsPublicKeyAdd(self, x);
@@ -264,13 +267,13 @@ impl PublicKey {
 impl Signature {
     pub fn verify_message(&self, pubkey: *const PublicKey, msg: &Message) -> bool {
         INIT.call_once(|| {
-            init(CurveType::BLS12_381);
+            init_library();
         });
         unsafe { blsVerifyHashWithDomain(self, pubkey, msg) == 1 }
     }
     pub fn verify_aggregated_message(&self, pubkeys: &[PublicKey], msgs: &[Message]) -> bool {
         INIT.call_once(|| {
-            init(CurveType::BLS12_381);
+            init_library();
         });
         let n = pubkeys.len();
         if msgs.len() != n {
@@ -280,7 +283,7 @@ impl Signature {
     }
     pub fn add_assign(&mut self, x: *const Signature) {
         INIT.call_once(|| {
-            init(CurveType::BLS12_381);
+            init_library();
         });
         unsafe {
             blsSignatureAdd(self, x);
