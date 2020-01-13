@@ -63,11 +63,11 @@ fn test_aggregate() {
 #[test]
 fn test_from_serialized_signature() {
     let data = [0u8; 0];
-    let sig = Signature::from_serialized(&data);
+    let _sig = Signature::from_serialized(&data);
 }
 
 #[test]
 fn test_from_serialized_publickey() {
     let data = [0u8; 0];
-    let pk = PublicKey::from_serialized(&data);
+    let _pk = PublicKey::from_serialized(&data);
 }
