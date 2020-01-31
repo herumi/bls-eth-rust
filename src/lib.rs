@@ -1,6 +1,6 @@
 //use std::mem::MaybeUninit;
-use std::sync::Once;
 use std::os::raw::c_int;
+use std::sync::Once;
 
 #[link(name = "bls384_256", kind = "static")]
 #[link(name = "stdc++")]
@@ -8,6 +8,8 @@ use std::os::raw::c_int;
 extern "C" {
     // global functions
     fn blsInit(curve: c_int, compiledTimeVar: c_int) -> c_int;
+    fn blsSetETHmode(mode: c_int) -> c_int;
+
     fn mclBn_getFrByteSize() -> u32;
     fn mclBn_getFpByteSize() -> u32;
 
@@ -28,6 +30,32 @@ extern "C" {
         aggSig: *const Signature,
         pubs: *const PublicKey,
         msgs: *const Message,
+        n: usize,
+    ) -> c_int;
+    fn blsSignatureVerifyOrder(doVerify: c_int);
+    fn blsSignatureIsValidOrder(sig: *const Signature) -> c_int;
+
+    // for new eth2.0 spec
+    fn blsSign(sig: *mut Signature, seckey: *const SecretKey, msg: *const u8, msgSize: usize);
+    fn blsVerify(
+        sig: *const Signature,
+        pubkey: *const PublicKey,
+        msg: *const u8,
+        msgSize: usize,
+    ) -> c_int;
+    fn blsAggregateSignature(aggSig: *mut Signature, sigVec: *const Signature, n: usize);
+    fn blsFastAggregateVerify(
+        sig: *const Signature,
+        pubVec: *const PublicKey,
+        n: usize,
+        msg: *const u8,
+        msgSize: usize,
+    ) -> c_int;
+    fn blsAggregateVerifyNoCheck(
+        sig: *const Signature,
+        pubVec: *const PublicKey,
+        msgVec: *const u8,
+        msgSize: usize,
         n: usize,
     ) -> c_int;
 
@@ -55,6 +83,11 @@ pub enum CurveType {
     BLS12_381 = 5,
 }
 
+pub enum EthModeType {
+    Old = 0,
+    Latest = 1,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum BlsError {
     InvalidData,
@@ -71,11 +104,14 @@ const MCLBN_COMPILED_TIME_VAR: c_int =
 pub const HASH_SIZE: usize = 32;
 pub const DOMAIN_SIZE: usize = 8;
 pub const HASH_AND_DOMAIN_SIZE: usize = HASH_SIZE + DOMAIN_SIZE;
+pub const MSG_SIZE: usize = 32;
 
 // Used to call blsInit only once.
 static INIT: Once = Once::new();
-fn init_library() {
+pub fn init_library() {
     init(CurveType::BLS12_381);
+    //#[cfg(feature = "latest")]
+    set_eth_mode(EthModeType::Latest);
 }
 
 macro_rules! common_impl {
@@ -145,6 +181,23 @@ macro_rules! serialize_impl {
 // Only call once
 pub fn init(curve_type: CurveType) -> bool {
     unsafe { blsInit(curve_type as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
+}
+
+// verify the correctness whenever signature setter is used
+// default off
+pub fn verify_signature_order(verify: bool) {
+    let b;
+    if verify {
+        b = 1
+    } else {
+        b = 0
+    }
+    unsafe { blsSignatureVerifyOrder(b) }
+}
+
+//#[cfg(feature = "latest")]
+pub fn set_eth_mode(mode: EthModeType) -> bool {
+    unsafe { blsSetETHmode(mode as c_int) == 0 }
 }
 
 #[derive(Default, Debug, Clone, Copy)]
@@ -251,6 +304,14 @@ impl SecretKey {
         }
         Err(BlsError::InternalError)
     }
+    pub fn sign(&self, msg: &[u8]) -> Signature {
+        INIT.call_once(|| {
+            init_library();
+        });
+        let mut v = unsafe { Signature::uninit() };
+        unsafe { blsSign(&mut v, self, msg.as_ptr(), msg.len()) }
+        v
+    }
 }
 
 impl PublicKey {
@@ -281,12 +342,52 @@ impl Signature {
         }
         unsafe { blsVerifyAggregatedHashWithDomain(self, pubkeys.as_ptr(), msgs.as_ptr(), n) == 1 }
     }
+    pub fn verify(&self, pubkey: *const PublicKey, msg: &[u8]) -> bool {
+        INIT.call_once(|| {
+            init_library();
+        });
+        unsafe { blsVerify(self, pubkey, msg.as_ptr(), msg.len()) == 1 }
+    }
     pub fn add_assign(&mut self, x: *const Signature) {
         INIT.call_once(|| {
             init_library();
         });
         unsafe {
             blsSignatureAdd(self, x);
+        }
+    }
+    // it is not necessary if verify_signature_order(true)
+    pub fn is_valid_order(&self) -> bool {
+        unsafe { blsSignatureIsValidOrder(self) == 1 }
+    }
+    pub fn aggregate(&mut self, sigs: &[Signature]) {
+        INIT.call_once(|| {
+            init_library();
+        });
+        unsafe {
+            blsAggregateSignature(self, sigs.as_ptr(), sigs.len());
+        }
+    }
+    pub fn fast_aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
+        INIT.call_once(|| {
+            init_library();
+        });
+        let n = pubs.len();
+        if n == 0 || n * MSG_SIZE != msgs.len() {
+            return false;
+        }
+        unsafe { blsFastAggregateVerify(self, pubs.as_ptr(), n, msgs.as_ptr(), MSG_SIZE) == 1 }
+    }
+    pub fn aggregate_verify_no_check(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
+        INIT.call_once(|| {
+            init_library();
+        });
+        let n = pubs.len();
+        if n == 0 || n * MSG_SIZE != msgs.len() {
+            return false;
+        }
+        unsafe {
+            blsAggregateVerifyNoCheck(self, pubs.as_ptr(), msgs.as_ptr(), MSG_SIZE, n) == 1
         }
     }
 }
