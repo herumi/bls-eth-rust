@@ -1,6 +1,12 @@
 use bls_eth_rust::*;
 use std::mem;
 
+#[test]
+fn test_are_all_msg_different() {
+    assert!(are_all_msg_different("abcdefgh".as_bytes(), 2));
+    assert!(!are_all_msg_different("abcdabgh".as_bytes(), 2));
+}
+
 macro_rules! serialize_test {
     ($t:ty, $x:expr) => {
         let buf = $x.serialize();

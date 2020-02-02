@@ -1,4 +1,5 @@
 //use std::mem::MaybeUninit;
+use std::collections::HashSet;
 use std::os::raw::c_int;
 use std::sync::Once;
 
@@ -112,6 +113,22 @@ pub fn init_library() {
     init(CurveType::BLS12_381);
     //#[cfg(feature = "latest")]
     set_eth_mode(EthModeType::Latest);
+    verify_signature_order(true);
+}
+
+// true if size-byte splitted msgs are different each other
+pub fn are_all_msg_different(msgs: &[u8], size: usize) -> bool {
+    let n = msgs.len() / size;
+    assert!(msgs.len() == n * size);
+    let mut set = HashSet::<&[u8]>::new();
+    for i in 0..n {
+        let msg = &msgs[i * size..(i + 1) * size];
+        if set.contains(msg) {
+            return false;
+        }
+        set.insert(msg);
+    }
+    return true;
 }
 
 macro_rules! common_impl {
@@ -186,13 +203,7 @@ pub fn init(curve_type: CurveType) -> bool {
 // verify the correctness whenever signature setter is used
 // default off
 pub fn verify_signature_order(verify: bool) {
-    let b;
-    if verify {
-        b = 1
-    } else {
-        b = 0
-    }
-    unsafe { blsSignatureVerifyOrder(b) }
+    unsafe { blsSignatureVerifyOrder(verify as c_int) }
 }
 
 //#[cfg(feature = "latest")]
@@ -358,6 +369,9 @@ impl Signature {
     }
     // it is not necessary if verify_signature_order(true)
     pub fn is_valid_order(&self) -> bool {
+        INIT.call_once(|| {
+            init_library();
+        });
         unsafe { blsSignatureIsValidOrder(self) == 1 }
     }
     pub fn aggregate(&mut self, sigs: &[Signature]) {
@@ -378,7 +392,7 @@ impl Signature {
         }
         unsafe { blsFastAggregateVerify(self, pubs.as_ptr(), n, msgs.as_ptr(), MSG_SIZE) == 1 }
     }
-    pub fn aggregate_verify_no_check(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
+    pub fn aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
         INIT.call_once(|| {
             init_library();
         });
@@ -386,8 +400,9 @@ impl Signature {
         if n == 0 || n * MSG_SIZE != msgs.len() {
             return false;
         }
-        unsafe {
-            blsAggregateVerifyNoCheck(self, pubs.as_ptr(), msgs.as_ptr(), MSG_SIZE, n) == 1
+        if !are_all_msg_different(msgs, MSG_SIZE) {
+            return false;
         }
+        unsafe { blsAggregateVerifyNoCheck(self, pubs.as_ptr(), msgs.as_ptr(), MSG_SIZE, n) == 1 }
     }
 }
