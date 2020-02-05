@@ -113,7 +113,7 @@ pub fn init_library() {
     init(CurveType::BLS12_381);
     //#[cfg(feature = "latest")]
     set_eth_mode(EthModeType::Latest);
-    verify_signature_order(true);
+    //verify_signature_order(true);
 }
 
 // true if size-byte splitted msgs are different each other
@@ -392,7 +392,7 @@ impl Signature {
         }
         unsafe { blsFastAggregateVerify(self, pubs.as_ptr(), n, msgs.as_ptr(), MSG_SIZE) == 1 }
     }
-    pub fn aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
+    fn inner_aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8], check_message: bool) -> bool {
         INIT.call_once(|| {
             init_library();
         });
@@ -400,9 +400,15 @@ impl Signature {
         if n == 0 || n * MSG_SIZE != msgs.len() {
             return false;
         }
-        if !are_all_msg_different(msgs, MSG_SIZE) {
+        if check_message && !are_all_msg_different(msgs, MSG_SIZE) {
             return false;
         }
         unsafe { blsAggregateVerifyNoCheck(self, pubs.as_ptr(), msgs.as_ptr(), MSG_SIZE, n) == 1 }
+    }
+    pub fn aggregate_verify_no_check(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
+        self.inner_aggregate_verify(pubs, msgs, false)
+    }
+    pub fn aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
+        self.inner_aggregate_verify(pubs, msgs, true)
     }
 }
