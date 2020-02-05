@@ -35,6 +35,8 @@ extern "C" {
     ) -> c_int;
     fn blsSignatureVerifyOrder(doVerify: c_int);
     fn blsSignatureIsValidOrder(sig: *const Signature) -> c_int;
+    fn blsPublicKeyVerifyOrder(doVerify: c_int);
+    fn blsPublicKeyIsValidOrder(pug: *const PublicKey) -> c_int;
 
     // for new eth2.0 spec
     fn blsSign(sig: *mut Signature, seckey: *const SecretKey, msg: *const u8, msgSize: usize);
@@ -206,6 +208,10 @@ pub fn verify_signature_order(verify: bool) {
     unsafe { blsSignatureVerifyOrder(verify as c_int) }
 }
 
+pub fn verify_publickey_order(verify: bool) {
+    unsafe { blsPublicKeyVerifyOrder(verify as c_int) }
+}
+
 //#[cfg(feature = "latest")]
 pub fn set_eth_mode(mode: EthModeType) -> bool {
     unsafe { blsSetETHmode(mode as c_int) == 0 }
@@ -333,6 +339,13 @@ impl PublicKey {
         unsafe {
             blsPublicKeyAdd(self, x);
         }
+    }
+    // it is not necessary if verify_publickey_order(true)
+    pub fn is_valid_order(&self) -> bool {
+        INIT.call_once(|| {
+            init_library();
+        });
+        unsafe { blsPublicKeyIsValidOrder(self) == 1 }
     }
 }
 
