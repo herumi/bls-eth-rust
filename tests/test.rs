@@ -2,6 +2,30 @@ use bls_eth_rust::*;
 use hex;
 use std::mem;
 
+fn secretkey_deserialize_hex_str(x: &str) -> SecretKey {
+    SecretKey::from_serialized(&hex::decode(x).unwrap()).unwrap()
+}
+
+fn secretkey_serialize_to_hex_str(x: &SecretKey) -> String {
+    hex::encode(x.serialize())
+}
+
+fn publickey_deserialize_hex_str(x: &str) -> PublicKey {
+    PublicKey::from_serialized(&hex::decode(x).unwrap()).unwrap()
+}
+
+fn publickey_serialize_to_hex_str(x: &PublicKey) -> String {
+    hex::encode(x.serialize())
+}
+
+fn signature_deserialize_hex_str(x: &str) -> Signature {
+    Signature::from_serialized(&hex::decode(x).unwrap()).unwrap()
+}
+
+fn signature_serialize_to_hex_str(x: &Signature) -> String {
+    hex::encode(x.serialize())
+}
+
 #[test]
 fn test_are_all_msg_different() {
     assert!(are_all_msg_different("abcdefgh".as_bytes(), 2));
@@ -89,12 +113,27 @@ fn test_eth_aggregate() {
     let sig_hex = "973ab0d765b734b1cbb2557bcf52392c9c7be3cd21d5bd28572d99f618c65e921f0dd82560cc103feb9f000c23c00e660e1364ed094f137e1045e73116cd75903af446df3c357540a4970ec367a7f7fa7493a5db27ca322c48d57740908585e8";
     let mut sigs = [unsafe { Signature::uninit() }; N];
     for i in 0..N {
-        let b = hex::decode(&MSG_TBL[i]).unwrap();
-        sigs[i] = Signature::from_serialized(&b).unwrap();
+        sigs[i] = signature_deserialize_hex_str(&MSG_TBL[i]);
     }
     let mut agg_sig = unsafe { Signature::uninit() };
     agg_sig.aggregate(&sigs);
-    let s = agg_sig.serialize();
-    let s_hex = hex::encode(s);
-    assert_eq!(s_hex, sig_hex);
+    assert_eq!(signature_serialize_to_hex_str(&agg_sig), sig_hex);
+}
+
+fn one_test_eth_sign(sec_hex: &str, msg_hex: &str, sig_hex: &str) {
+    let seckey = secretkey_deserialize_hex_str(&sec_hex);
+    let pubkey = seckey.get_publickey();
+    let msg = hex::decode(&msg_hex).unwrap();
+    let sig = seckey.sign(&msg);
+    assert!(sig.verify(&pubkey, &msg));
+    assert_eq!(signature_serialize_to_hex_str(&sig), sig_hex);
+}
+
+#[test]
+fn test_eth_sign() {
+    let sec_hex = "47b8192d77bf871b62e87859d653922725724a5c031afeabc60bcef5ff665138";
+    let msg_hex = "0000000000000000000000000000000000000000000000000000000000000000";
+    let sig_hex = "b2deb7c656c86cb18c43dae94b21b107595486438e0b906f3bdb29fa316d0fc3cab1fc04c6ec9879c773849f2564d39317bfa948b4a35fc8509beafd3a2575c25c077ba8bca4df06cb547fe7ca3b107d49794b7132ef3b5493a6ffb2aad2a441";
+
+    one_test_eth_sign(sec_hex, msg_hex, sig_hex);
 }
