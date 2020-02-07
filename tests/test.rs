@@ -9,6 +9,7 @@ fn secretkey_deserialize_hex_str(x: &str) -> SecretKey {
     SecretKey::from_serialized(&hex::decode(x).unwrap()).unwrap()
 }
 
+#[allow(dead_code)]
 fn secretkey_serialize_to_hex_str(x: &SecretKey) -> String {
     hex::encode(x.serialize())
 }
@@ -17,6 +18,7 @@ fn publickey_deserialize_hex_str(x: &str) -> PublicKey {
     PublicKey::from_serialized(&hex::decode(x).unwrap()).unwrap()
 }
 
+#[allow(dead_code)]
 fn publickey_serialize_to_hex_str(x: &PublicKey) -> String {
     hex::encode(x.serialize())
 }
@@ -159,7 +161,7 @@ fn test_eth_sign() {
 }
 
 #[test]
-fn test_aggregate_verify_no_check() {
+fn test_eth_aggregate_verify_no_check1() {
     const N: usize = 3;
     const PUB_TBL:[&str;N] = [
 		"a491d1b0ecd9bb917989f0e74f0dea0422eac4a873e5e2644f368dffb9a6e20fd6e10c1b77654d067c0618f6e5a7f79a",
@@ -182,4 +184,34 @@ fn test_aggregate_verify_no_check() {
     let msgs = hex::decode(&msg_hex).unwrap();
     assert!(are_all_msg_different(&msgs, 32));
     assert!(sig.aggregate_verify_no_check(&pubs, &msgs));
+}
+
+fn one_test_eth_aggregate_verify_no_check(n: usize) {
+    const MSG_SIZE: usize = 32;
+    let mut pubs: Vec<PublicKey> = Vec::new();
+    let mut sigs: Vec<Signature> = Vec::new();
+    let mut msgs: Vec<u8> = Vec::new();
+    msgs.resize_with(n * MSG_SIZE, Default::default);
+    for i in 0..n {
+        let mut sec: SecretKey = unsafe { SecretKey::uninit() };
+        sec.set_by_csprng();
+        pubs.push(sec.get_publickey());
+        msgs[MSG_SIZE * i] = i as u8;
+        let sig = sec.sign(&msgs[i * MSG_SIZE..(i + 1) * MSG_SIZE]);
+        sigs.push(sig);
+    }
+    assert!(are_all_msg_different(&msgs, MSG_SIZE));
+    let mut agg_sig = unsafe { Signature::uninit() };
+    agg_sig.aggregate(&sigs);
+    assert!(agg_sig.aggregate_verify_no_check(&pubs, &msgs));
+    msgs[1] = 1;
+    assert!(!agg_sig.aggregate_verify_no_check(&pubs, &msgs));
+}
+
+#[test]
+fn test_eth_aggregate_verify_no_check2() {
+    let tbl = [1, 2, 15, 16, 17, 50];
+    for i in 0..tbl.len() {
+        one_test_eth_aggregate_verify_no_check(tbl[i]);
+    }
 }
