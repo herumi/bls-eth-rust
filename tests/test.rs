@@ -186,6 +186,45 @@ fn test_eth_aggregate_verify_no_check1() {
     assert!(sig.aggregate_verify_no_check(&pubs, &msgs));
 }
 
+#[test]
+fn test_fast_aggregate_verify() {
+    let f = File::open("tests/fast_aggregate_verify.txt").unwrap();
+    let file = BufReader::new(&f);
+    let mut pubs: Vec<PublicKey> = Vec::new();
+    let mut sig = unsafe { Signature::uninit() };
+    let mut msg: Vec<u8> = Vec::new();
+    let mut valid = false;
+
+    let mut i = 0;
+    for (_, s) in file.lines().enumerate() {
+        let line = s.unwrap();
+        let v: Vec<&str> = line.split(' ').collect();
+        match v[0] {
+            "pub" => pubs.push(publickey_deserialize_hex_str(&v[1])),
+            "msg" => {
+                let vv = &hex::decode(&v[1]).unwrap();
+                msg = vv.clone();
+            }
+            "sig" => {
+                valid = sig.deserialize(&hex::decode(&v[1]).unwrap());
+                if !valid {
+                    println!("bad signature {:?}", &v[1]);
+                }
+            }
+            "out" => {
+                println!("i={:?}", i);
+                if valid {
+                    let out = v[1] == "true";
+                    assert_eq!(sig.fast_aggregate_verify(&pubs, &msg), out);
+                }
+                pubs.truncate(0);
+                i += 1;
+            }
+            _ => assert!(false),
+        }
+    }
+}
+
 fn one_test_eth_aggregate_verify_no_check(n: usize) {
     const MSG_SIZE: usize = 32;
     let mut pubs: Vec<PublicKey> = Vec::new();
@@ -203,14 +242,18 @@ fn one_test_eth_aggregate_verify_no_check(n: usize) {
     assert!(are_all_msg_different(&msgs, MSG_SIZE));
     let mut agg_sig = unsafe { Signature::uninit() };
     agg_sig.aggregate(&sigs);
-    assert!(agg_sig.aggregate_verify_no_check(&pubs, &msgs));
-    msgs[1] = 1;
-    assert!(!agg_sig.aggregate_verify_no_check(&pubs, &msgs));
+    if n == 0 {
+        assert!(!agg_sig.aggregate_verify_no_check(&pubs, &msgs));
+    } else {
+        assert!(agg_sig.aggregate_verify_no_check(&pubs, &msgs));
+        msgs[1] = 1;
+        assert!(!agg_sig.aggregate_verify_no_check(&pubs, &msgs));
+    }
 }
 
 #[test]
 fn test_eth_aggregate_verify_no_check2() {
-    let tbl = [1, 2, 15, 16, 17, 50];
+    let tbl = [0, 1, 2, 15, 16, 17, 50];
     for i in 0..tbl.len() {
         one_test_eth_aggregate_verify_no_check(tbl[i]);
     }

@@ -399,11 +399,12 @@ impl Signature {
         INIT.call_once(|| {
             init_library();
         });
-        let n = pubs.len();
-        if n == 0 || n * MSG_SIZE != msgs.len() {
+        if pubs.len() == 0 {
             return false;
         }
-        unsafe { blsFastAggregateVerify(self, pubs.as_ptr(), n, msgs.as_ptr(), MSG_SIZE) == 1 }
+        unsafe {
+            blsFastAggregateVerify(self, pubs.as_ptr(), pubs.len(), msgs.as_ptr(), msgs.len()) == 1
+        }
     }
     fn inner_aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8], check_message: bool) -> bool {
         INIT.call_once(|| {
