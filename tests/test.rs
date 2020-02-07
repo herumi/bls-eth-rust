@@ -1,5 +1,8 @@
 use bls_eth_rust::*;
 use hex;
+use std::fs::File;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::mem;
 
 fn secretkey_deserialize_hex_str(x: &str) -> SecretKey {
@@ -131,9 +134,26 @@ fn one_test_eth_sign(sec_hex: &str, msg_hex: &str, sig_hex: &str) {
 
 #[test]
 fn test_eth_sign() {
-    let sec_hex = "47b8192d77bf871b62e87859d653922725724a5c031afeabc60bcef5ff665138";
-    let msg_hex = "0000000000000000000000000000000000000000000000000000000000000000";
-    let sig_hex = "b2deb7c656c86cb18c43dae94b21b107595486438e0b906f3bdb29fa316d0fc3cab1fc04c6ec9879c773849f2564d39317bfa948b4a35fc8509beafd3a2575c25c077ba8bca4df06cb547fe7ca3b107d49794b7132ef3b5493a6ffb2aad2a441";
+    let mut sec_hex =
+        "47b8192d77bf871b62e87859d653922725724a5c031afeabc60bcef5ff665138".to_string();
+    let mut msg_hex =
+        "0000000000000000000000000000000000000000000000000000000000000000".to_string();
+    let mut sig_hex = "b2deb7c656c86cb18c43dae94b21b107595486438e0b906f3bdb29fa316d0fc3cab1fc04c6ec9879c773849f2564d39317bfa948b4a35fc8509beafd3a2575c25c077ba8bca4df06cb547fe7ca3b107d49794b7132ef3b5493a6ffb2aad2a441".to_string();
 
-    one_test_eth_sign(sec_hex, msg_hex, sig_hex);
+    one_test_eth_sign(&sec_hex, &msg_hex, &sig_hex);
+    let f = File::open("tests/sign.txt").unwrap();
+    let file = BufReader::new(&f);
+    for (_, s) in file.lines().enumerate() {
+        let line = s.unwrap();
+        let v: Vec<&str> = line.split(' ').collect();
+        match v[0] {
+            "sec" => sec_hex = v[1].to_string(),
+            "msg" => msg_hex = v[1].to_string(),
+            "out" => {
+                sig_hex = v[1].to_string();
+                one_test_eth_sign(&sec_hex, &msg_hex, &sig_hex);
+            }
+            _ => assert!(false),
+        }
+    }
 }
