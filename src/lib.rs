@@ -1,3 +1,5 @@
+//! bls-eth-rust is a library to support BLS signature for Ethereum 2.0 Phase 0
+
 //use std::mem::MaybeUninit;
 use std::collections::HashSet;
 use std::os::raw::c_int;
@@ -79,22 +81,26 @@ extern "C" {
 
 }
 
-pub enum CurveType {
-    BN254 = 0,
-    BN381 = 1,
-    SNARK = 4,
+enum CurveType {
     BLS12_381 = 5,
 }
 
+/// `EthModeType` is for `set_eth_mode`
 pub enum EthModeType {
+    /// before Ethereum 2.0 Phase 0
     Old = 0,
+    /// Ethereum 2.0 Phase 0(eth2.0)
     Latest = 1,
 }
 
 #[derive(Debug, PartialEq, Clone)]
+/// `BlsError` type for error
 pub enum BlsError {
+    /// invalid data
     InvalidData,
+    /// bad parameter size
     BadSize,
+    /// internal error (should not happen)
     InternalError,
 }
 
@@ -104,21 +110,28 @@ const BLS_COMPILER_TIME_VAR_ADJ: usize = 200;
 const MCLBN_COMPILED_TIME_VAR: c_int =
     (MCLBN_FR_UNIT_SIZE * 10 + MCLBN_FP_UNIT_SIZE + BLS_COMPILER_TIME_VAR_ADJ) as c_int;
 
+/// not used in eth2.0
 pub const HASH_SIZE: usize = 32;
+/// not used in eth2.0
 pub const DOMAIN_SIZE: usize = 8;
+/// not used in eth2.0
 pub const HASH_AND_DOMAIN_SIZE: usize = HASH_SIZE + DOMAIN_SIZE;
+
+/// message is 32 byte in eth2.0
 pub const MSG_SIZE: usize = 32;
 
 // Used to call blsInit only once.
 static INIT: Once = Once::new();
-pub fn init_library() {
+fn init_library() {
     init(CurveType::BLS12_381);
     //#[cfg(feature = "latest")]
     set_eth_mode(EthModeType::Latest);
     //verify_signature_order(true);
 }
 
-// true if size-byte splitted msgs are different each other
+/// return true if `size`-byte splitted `msgs` are different each other
+/// * `msgs` - an array that `size`-byte messages are concatenated
+/// * `size` - lenght of one message
 pub fn are_all_msg_different(msgs: &[u8], size: usize) -> bool {
     let n = msgs.len() / size;
     assert!(msgs.len() == n * size);
@@ -136,6 +149,7 @@ pub fn are_all_msg_different(msgs: &[u8], size: usize) -> bool {
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident) => {
         impl PartialEq for $t {
+            /// return true if `self` is equal to `rhs`
             fn eq(&self, rhs: &Self) -> bool {
                 INIT.call_once(|| {
                     init_library();
@@ -145,9 +159,11 @@ macro_rules! common_impl {
         }
         impl Eq for $t {}
         impl $t {
+            /// return zero instance
             pub fn zero() -> $t {
                 Default::default()
             }
+            /// return uninitialized instance
             pub unsafe fn uninit() -> $t {
                 std::mem::uninitialized()
             }
@@ -158,12 +174,15 @@ macro_rules! common_impl {
 macro_rules! serialize_impl {
     ($t:ty, $size:expr, $serialize_fn:ident, $deserialize_fn:ident) => {
         impl $t {
+            /// return true if `buf` is deserialized successfully
+            /// * `buf` - serialized data by `serialize`
             pub fn deserialize(&mut self, buf: &[u8]) -> bool {
                 INIT.call_once(|| {
                     init_library();
                 });
                 unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
             }
+            /// return deserialized `buf`
             pub fn from_serialized(buf: &[u8]) -> Result<$t, BlsError> {
                 let mut v = unsafe { <$t>::uninit() };
                 if v.deserialize(buf) {
@@ -171,6 +190,7 @@ macro_rules! serialize_impl {
                 }
                 Err(BlsError::InvalidData)
             }
+            /// return serialized byte array
             pub fn serialize(&self) -> Vec<u8> {
                 INIT.call_once(|| {
                     init_library();
@@ -190,6 +210,7 @@ macro_rules! serialize_impl {
                 }
                 buf
             }
+            /// alias of serialize
             pub fn as_bytes(&self) -> Vec<u8> {
                 self.serialize()
             }
@@ -197,26 +218,30 @@ macro_rules! serialize_impl {
     };
 }
 
-// Only call once
-pub fn init(curve_type: CurveType) -> bool {
+fn init(curve_type: CurveType) -> bool {
     unsafe { blsInit(curve_type as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
 
-// verify the correctness whenever signature setter is used
-// default off
+/// verify the correctness whenever signature setter is used
+/// * `verify` - enable if true (default off)
 pub fn verify_signature_order(verify: bool) {
     unsafe { blsSignatureVerifyOrder(verify as c_int) }
 }
 
+/// verify the correctness whenever signature setter is used
+/// * `verify` - enable if true (default off)
 pub fn verify_publickey_order(verify: bool) {
     unsafe { blsPublicKeyVerifyOrder(verify as c_int) }
 }
 
 //#[cfg(feature = "latest")]
+/// change the mode of Ethereum specification
+/// `mode` - mode of spec
 pub fn set_eth_mode(mode: EthModeType) -> bool {
     unsafe { blsSetETHmode(mode as c_int) == 0 }
 }
 
+/// not used in eth2.0
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Message {
@@ -233,12 +258,14 @@ impl Message {
     }
 }
 
+/// secret key type
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
 pub struct SecretKey {
     d: [u64; MCLBN_FR_UNIT_SIZE],
 }
 
+/// public key type
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
 pub struct PublicKey {
@@ -247,6 +274,7 @@ pub struct PublicKey {
     z: [u64; MCLBN_FP_UNIT_SIZE],
 }
 
+/// signature type
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Signature {
@@ -280,18 +308,21 @@ serialize_impl![
 ];
 
 impl SecretKey {
+    /// init secret key by CSPRNG
     pub fn set_by_csprng(&mut self) {
         INIT.call_once(|| {
             init_library();
         });
         unsafe { blsSecretKeySetByCSPRNG(self) }
     }
+    /// set hexadecimal string `s` to `self`
     pub fn set_hex_str(&mut self, s: &str) -> bool {
         INIT.call_once(|| {
             init_library();
         });
         unsafe { blsSecretKeySetHexStr(self, s.as_ptr(), s.len()) > 0 }
     }
+    /// return the secret key set by hexadecimal string `s`
     pub fn from_hex_str(s: &str) -> Result<SecretKey, BlsError> {
         let mut v = unsafe { SecretKey::uninit() };
         if v.set_hex_str(&s) {
@@ -299,6 +330,7 @@ impl SecretKey {
         }
         Err(BlsError::InvalidData)
     }
+    /// return the public key corresponding to `self`
     pub fn get_publickey(&self) -> PublicKey {
         INIT.call_once(|| {
             init_library();
@@ -309,6 +341,7 @@ impl SecretKey {
         }
         v
     }
+    /// not used in eth2.0
     pub fn sign_message(&self, msg: &Message) -> Result<Signature, BlsError> {
         INIT.call_once(|| {
             init_library();
@@ -321,6 +354,8 @@ impl SecretKey {
         }
         Err(BlsError::InternalError)
     }
+    /// return the signature of `msg`
+    /// * `msg` - message
     pub fn sign(&self, msg: &[u8]) -> Signature {
         INIT.call_once(|| {
             init_library();
@@ -332,6 +367,8 @@ impl SecretKey {
 }
 
 impl PublicKey {
+    /// add `x` to `self`
+    /// * `x` - signature to be added
     pub fn add_assign(&mut self, x: *const PublicKey) {
         INIT.call_once(|| {
             init_library();
@@ -340,7 +377,7 @@ impl PublicKey {
             blsPublicKeyAdd(self, x);
         }
     }
-    // it is not necessary if verify_publickey_order(true)
+    /// return true if `self` has the valid order
     pub fn is_valid_order(&self) -> bool {
         INIT.call_once(|| {
             init_library();
@@ -350,12 +387,14 @@ impl PublicKey {
 }
 
 impl Signature {
+    /// not used in eth2.0
     pub fn verify_message(&self, pubkey: *const PublicKey, msg: &Message) -> bool {
         INIT.call_once(|| {
             init_library();
         });
         unsafe { blsVerifyHashWithDomain(self, pubkey, msg) == 1 }
     }
+    /// not used in eth2.0
     pub fn verify_aggregated_message(&self, pubkeys: &[PublicKey], msgs: &[Message]) -> bool {
         INIT.call_once(|| {
             init_library();
@@ -366,12 +405,17 @@ impl Signature {
         }
         unsafe { blsVerifyAggregatedHashWithDomain(self, pubkeys.as_ptr(), msgs.as_ptr(), n) == 1 }
     }
+    /// return true if `self` is valid signature of `msg` for `pubkey`
+    /// `pubkey` - public key
+    /// `msg` - message
     pub fn verify(&self, pubkey: *const PublicKey, msg: &[u8]) -> bool {
         INIT.call_once(|| {
             init_library();
         });
         unsafe { blsVerify(self, pubkey, msg.as_ptr(), msg.len()) == 1 }
     }
+    /// add `x` to `self`
+    /// * `x` - signature to be added
     pub fn add_assign(&mut self, x: *const Signature) {
         INIT.call_once(|| {
             init_library();
@@ -380,13 +424,15 @@ impl Signature {
             blsSignatureAdd(self, x);
         }
     }
-    // it is not necessary if verify_signature_order(true)
+    /// return true if `self` has the valid order
     pub fn is_valid_order(&self) -> bool {
         INIT.call_once(|| {
             init_library();
         });
         unsafe { blsSignatureIsValidOrder(self) == 1 }
     }
+    /// set the aggregated signature of `sigs`
+    /// * `sigs` - signatures to be aggregated
     pub fn aggregate(&mut self, sigs: &[Signature]) {
         INIT.call_once(|| {
             init_library();
@@ -395,7 +441,10 @@ impl Signature {
             blsAggregateSignature(self, sigs.as_ptr(), sigs.len());
         }
     }
-    pub fn fast_aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
+    /// return true if `self` is a valid signature of `msgs` for `pubs`
+    /// * `pubs` - array of public key
+    /// * `msg` - message
+    pub fn fast_aggregate_verify(&self, pubs: &[PublicKey], msg: &[u8]) -> bool {
         INIT.call_once(|| {
             init_library();
         });
@@ -403,7 +452,7 @@ impl Signature {
             return false;
         }
         unsafe {
-            blsFastAggregateVerify(self, pubs.as_ptr(), pubs.len(), msgs.as_ptr(), msgs.len()) == 1
+            blsFastAggregateVerify(self, pubs.as_ptr(), pubs.len(), msg.as_ptr(), msg.len()) == 1
         }
     }
     fn inner_aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8], check_message: bool) -> bool {
@@ -419,9 +468,16 @@ impl Signature {
         }
         unsafe { blsAggregateVerifyNoCheck(self, pubs.as_ptr(), msgs.as_ptr(), MSG_SIZE, n) == 1 }
     }
+    /// return true if `self` is a valid signature of `msgs` for `pubs`
+    /// * `pubs` - array of public key
+    /// * `msgs` - concatenated byte `pubs.len()` array of 32-byte messages
+    /// * Note - this function does not call `are_all_msg_different`
     pub fn aggregate_verify_no_check(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
         self.inner_aggregate_verify(pubs, msgs, false)
     }
+    /// return true if `self` is a valid signature of `msgs` for `pubs`
+    /// * `pubs` - array of public key
+    /// * `msgs` - concatenated byte `pubs.len()` array of 32-byte messages
     pub fn aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
         self.inner_aggregate_verify(pubs, msgs, true)
     }
