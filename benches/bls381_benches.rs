@@ -4,6 +4,7 @@ use bls_eth_rust::*;
 use criterion::{black_box, criterion_group, criterion_main, Benchmark, Criterion};
 
 fn signing(c: &mut Criterion) {
+    set_eth_mode(EthModeType::Old);
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
     let msg = Message::zero();
@@ -32,6 +33,7 @@ fn signing(c: &mut Criterion) {
 }
 
 fn compression(c: &mut Criterion) {
+    set_eth_mode(EthModeType::Old);
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
     let msg = Message::zero();
@@ -60,6 +62,7 @@ fn compression(c: &mut Criterion) {
 }
 
 fn aggregation(c: &mut Criterion) {
+    set_eth_mode(EthModeType::Old);
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
     let pubkey = seckey.get_publickey();
