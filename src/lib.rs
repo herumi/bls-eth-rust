@@ -320,7 +320,7 @@ impl SecretKey {
         INIT.call_once(|| {
             init_library();
         });
-        unsafe { blsSecretKeySetHexStr(self, s.as_ptr(), s.len()) > 0 }
+        unsafe { blsSecretKeySetHexStr(self, s.as_ptr(), s.len()) == 0 }
     }
     /// return the secret key set by hexadecimal string `s`
     pub fn from_hex_str(s: &str) -> Result<SecretKey, BlsError> {
