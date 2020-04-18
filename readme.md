@@ -7,9 +7,11 @@ This is a wrapper library of [bls](https://github.com/herumi/bls/) with `BLS_ETH
 copy from [bls-eth-go-binary/bls/lib](https://github.com/herumi/bls-eth-go-binary/tree/master/bls/lib) or build it at yourself according to [readme.md](https://github.com/herumi/bls-eth-go-binary#how-to-build-the-static-binary).
 
 # News
-The new [eth2.0 functions](https://github.com/ethereum/eth2.0-specs/blob/dev/specs/phase0/beacon-chain.md#bls-signatures) are supported.
+The default hash function has changed to the function defined at [draft-irtf-cfrg-hash-to-curve](https://cfrg.github.io/draft-irtf-cfrg-hash-to-curve/draft-irtf-cfrg-hash-to-curve.txt).
 
-bls-eth-rust | eth2.0 spec name|
+If you want to use old hash function, then call `set_eth_mode(EthModeType::Draft05);`.
+
+bls-eth-rust | old eth2.0 spec name|
 ------|-----------------|
 SecretKey::sign|Sign|
 PublicKey::verify|Verify|
@@ -26,8 +28,11 @@ Check functions:
 # How to test
 
 ```
-env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo test
+env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo test -- --test-threads 1
 ```
+- Remark: `set_eth_mode` is not thread-safe, then don't use parallel test.
+The restriction will be removed if old tests are removed.
+
 For example, on Linux,
 
 ```
@@ -36,7 +41,7 @@ cd work
 git clone https://github.com/herumi/bls-eth-go-binary
 git clone https://github.com/herumi/bls-eth-rust
 cd bls-eth-rust
-env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo test
+env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo test -- --test-threads 1
 ```
 
 # How to run benchs

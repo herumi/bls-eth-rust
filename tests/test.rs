@@ -110,6 +110,7 @@ fn test_from_serialized_publickey() {
 
 #[test]
 fn test_eth_aggregate() {
+    set_eth_mode(EthModeType::Draft05);
     const N: usize = 3;
     const MSG_TBL:[&str;N] = [
 		"b2a0bd8e837fc2a1b28ee5bcf2cddea05f0f341b375e51de9d9ee6d977c2813a5c5583c19d4e7db8d245eebd4e502163076330c988c91493a61b97504d1af85fdc167277a1664d2a43af239f76f176b215e0ee81dc42f1c011dc02d8b0a31e32",
@@ -136,6 +137,7 @@ fn one_test_eth_sign(sec_hex: &str, msg_hex: &str, sig_hex: &str) {
 
 #[test]
 fn test_eth_sign() {
+    set_eth_mode(EthModeType::Draft05);
     let mut sec_hex =
         "47b8192d77bf871b62e87859d653922725724a5c031afeabc60bcef5ff665138".to_string();
     let mut msg_hex =
@@ -162,6 +164,7 @@ fn test_eth_sign() {
 
 #[test]
 fn test_eth_aggregate_verify_no_check1() {
+    set_eth_mode(EthModeType::Draft05);
     const N: usize = 3;
     const PUB_TBL:[&str;N] = [
 		"a491d1b0ecd9bb917989f0e74f0dea0422eac4a873e5e2644f368dffb9a6e20fd6e10c1b77654d067c0618f6e5a7f79a",
@@ -188,6 +191,7 @@ fn test_eth_aggregate_verify_no_check1() {
 
 #[test]
 fn test_fast_aggregate_verify() {
+    set_eth_mode(EthModeType::Draft05);
     let f = File::open("tests/fast_aggregate_verify.txt").unwrap();
     let file = BufReader::new(&f);
     let mut pubs: Vec<PublicKey> = Vec::new();
@@ -226,6 +230,7 @@ fn test_fast_aggregate_verify() {
 }
 
 fn one_test_eth_aggregate_verify_no_check(n: usize) {
+    set_eth_mode(EthModeType::Draft05);
     const MSG_SIZE: usize = 32;
     let mut pubs: Vec<PublicKey> = Vec::new();
     let mut sigs: Vec<Signature> = Vec::new();
@@ -253,8 +258,19 @@ fn one_test_eth_aggregate_verify_no_check(n: usize) {
 
 #[test]
 fn test_eth_aggregate_verify_no_check2() {
+    set_eth_mode(EthModeType::Draft05);
     let tbl = [0, 1, 2, 15, 16, 17, 50];
     for i in 0..tbl.len() {
         one_test_eth_aggregate_verify_no_check(tbl[i]);
     }
+}
+
+#[test]
+fn test_eth_draft06() {
+    set_eth_mode(EthModeType::Draft06);
+    let seckey = SecretKey::from_hex_str("1").unwrap();
+    let sig = seckey.sign("asdf".as_bytes());
+    let sig_hex = "8c858cfbec5fed26cdf9368337900a7bec132b4356e959d9e94b8e9178f8669598a46cd12eadf2226d796f6429b527fc067112244c2b15f3b7f6d5f6304c51a7b087664eaabc3c76e745daeafe6930f5699a6a0d4a24486aa886b3770a63ed32";
+
+    assert_eq!(signature_serialize_to_hex_str(&sig), sig_hex);
 }
