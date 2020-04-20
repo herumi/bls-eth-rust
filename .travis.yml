@@ -1,5 +1,6 @@
-dist: trusty
+dist: bionic
 language: rust
+cache: cargo
 script:
   - wget https://github.com/herumi/bls-eth-go-binary/raw/master/bls/lib/linux/amd64/libbls384_256.a
-  - env RUSTFLAGS="-L./" cargo test -- --test-threads=1
+  - env RUSTFLAGS="-L./" cargo test --verbose -- --test-threads=1
