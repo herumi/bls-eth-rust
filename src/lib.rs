@@ -167,7 +167,7 @@ macro_rules! common_impl {
             }
             /// return uninitialized instance
             pub unsafe fn uninit() -> $t {
-                std::mem::uninitialized()
+                std::mem::MaybeUninit::uninit().assume_init()
             }
         }
     };
@@ -256,7 +256,7 @@ impl Message {
         Default::default()
     }
     pub unsafe fn uninit() -> Message {
-        std::mem::uninitialized()
+        std::mem::MaybeUninit::uninit().assume_init()
     }
 }
 
