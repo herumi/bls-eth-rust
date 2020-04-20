@@ -59,3 +59,6 @@ http://opensource.org/licenses/BSD-3-Clause
 # Author
 
 MITSUNARI Shigeo(herumi@nifty.com)
+
+## Sponsors welcome
+[GitHub Sponsor](https://github.com/sponsors/herumi)
