@@ -93,6 +93,8 @@ pub enum EthModeType {
     Draft05 = 1,
     /// Ethereum 2.0 Phase 0(eth2.0) draft06
     Draft06 = 2,
+    /// Ethereum 2.0 Phase 0(eth2.0) draft07
+    Draft07 = 3,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -127,7 +129,7 @@ static INIT: Once = Once::new();
 fn init_library() {
     init(CurveType::BLS12_381);
     //#[cfg(feature = "latest")]
-    set_eth_mode(EthModeType::Draft06);
+    set_eth_mode(EthModeType::Draft07);
     //verify_signature_order(true);
 }
 

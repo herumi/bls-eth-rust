@@ -274,3 +274,12 @@ fn test_eth_draft06() {
 
     assert_eq!(signature_serialize_to_hex_str(&sig), sig_hex);
 }
+
+#[test]
+fn test_eth_draft07() {
+    set_eth_mode(EthModeType::Draft07);
+    let seckey = SecretKey::from_hex_str("1").unwrap();
+    let sig = seckey.sign("asdf".as_bytes());
+    let sig_hex = "b45a264e0d6f8614c4640ea97bae13effd3c74c4e200e3b1596d6830debc952602a7d210eca122dc4f596fa01d7f6299106933abd29477606f64588595e18349afe22ecf2aeeeb63753e88a42ef85b24140847e05620a28422f8c30f1d33b9aa";
+    assert_eq!(signature_serialize_to_hex_str(&sig), sig_hex);
+}
