@@ -78,7 +78,7 @@ extern "C" {
 
     fn blsPublicKeyAdd(pubkey: *mut PublicKey, x: *const PublicKey);
     fn blsSignatureAdd(sig: *mut Signature, x: *const Signature);
-
+    fn mclBnFr_isZero(x: *const SecretKey) -> i32;
 }
 
 enum CurveType {
@@ -318,6 +318,10 @@ impl SecretKey {
             init_library();
         });
         unsafe { blsSecretKeySetByCSPRNG(self) }
+        let ret = unsafe { mclBnFr_isZero(self) };
+        if ret == 1 {
+            panic!("zero secretkey")
+        }
     }
     /// set hexadecimal string `s` to `self`
     pub fn set_hex_str(&mut self, s: &str) -> bool {
