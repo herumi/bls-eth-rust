@@ -11,8 +11,6 @@ copy from [bls-eth-go-binary/bls/lib](https://github.com/herumi/bls-eth-go-binar
 - 2020/May/19 : The default hash function has change to the function defined at [BLS12381G2_XMD:SHA-256_SSWU_RO_](https://www.ietf.org/id/draft-irtf-cfrg-hash-to-curve-07.html#name-bls12381g2_xmdsha-256_sswu_).
 - The default hash function has changed to the function defined at [draft-irtf-cfrg-hash-to-curve](https://cfrg.github.io/draft-irtf-cfrg-hash-to-curve/draft-irtf-cfrg-hash-to-curve.txt).
 
-If you want to use old hash function, then call `set_eth_mode(EthModeType::Draft05);`.
-
 bls-eth-rust | old eth2.0 spec name|
 ------|-----------------|
 SecretKey::sign|Sign|
@@ -30,10 +28,8 @@ Check functions:
 # How to test
 
 ```
-env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo test -- --test-threads 1
+env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo test
 ```
-- Remark: `set_eth_mode` is not thread-safe, then don't use parallel test.
-The restriction will be removed if old tests are removed.
 
 For example, on Linux,
 
