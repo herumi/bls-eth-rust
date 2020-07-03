@@ -23,11 +23,9 @@ fn publickey_serialize_to_hex_str(x: &PublicKey) -> String {
     hex::encode(x.serialize())
 }
 
-/*
 fn signature_deserialize_hex_str(x: &str) -> Signature {
     Signature::from_serialized(&hex::decode(x).unwrap()).unwrap()
 }
-*/
 
 fn signature_serialize_to_hex_str(x: &Signature) -> String {
     hex::encode(x.serialize())
@@ -110,24 +108,28 @@ fn test_from_serialized_publickey() {
     let _pk = PublicKey::from_serialized(&data);
 }
 
-/*
 #[test]
 fn test_eth_aggregate() {
-    const N: usize = 3;
-    const MSG_TBL:[&str;N] = [
-		"b2a0bd8e837fc2a1b28ee5bcf2cddea05f0f341b375e51de9d9ee6d977c2813a5c5583c19d4e7db8d245eebd4e502163076330c988c91493a61b97504d1af85fdc167277a1664d2a43af239f76f176b215e0ee81dc42f1c011dc02d8b0a31e32",
-		"b2deb7c656c86cb18c43dae94b21b107595486438e0b906f3bdb29fa316d0fc3cab1fc04c6ec9879c773849f2564d39317bfa948b4a35fc8509beafd3a2575c25c077ba8bca4df06cb547fe7ca3b107d49794b7132ef3b5493a6ffb2aad2a441",
-		"a1db7274d8981999fee975159998ad1cc6d92cd8f4b559a8d29190dad41dc6c7d17f3be2056046a8bcbf4ff6f66f2a360860fdfaefa91b8eca875d54aca2b74ed7148f9e89e2913210a0d4107f68dbc9e034acfc386039ff99524faf2782de0e"];
-    let sig_hex = "973ab0d765b734b1cbb2557bcf52392c9c7be3cd21d5bd28572d99f618c65e921f0dd82560cc103feb9f000c23c00e660e1364ed094f137e1045e73116cd75903af446df3c357540a4970ec367a7f7fa7493a5db27ca322c48d57740908585e8";
-    let mut sigs = [unsafe { Signature::uninit() }; N];
-    for i in 0..N {
-        sigs[i] = signature_deserialize_hex_str(&MSG_TBL[i]);
+    let f = File::open("tests/aggregate.txt").unwrap();
+    let file = BufReader::new(&f);
+    let mut sigs: Vec<Signature> = Vec::new();
+
+    for (_, s) in file.lines().enumerate() {
+        let line = s.unwrap();
+        let v: Vec<&str> = line.split(' ').collect();
+        match v[0] {
+            "sig" => sigs.push(signature_deserialize_hex_str(&v[1])),
+            "out" => {
+                let out = signature_deserialize_hex_str(&v[1]);
+                let mut agg = unsafe { Signature::uninit() };
+                agg.aggregate(&sigs);
+                sigs.clear();
+                assert_eq!(agg, out);
+            }
+            _ => assert!(false),
+        }
     }
-    let mut agg_sig = unsafe { Signature::uninit() };
-    agg_sig.aggregate(&sigs);
-    assert_eq!(signature_serialize_to_hex_str(&agg_sig), sig_hex);
 }
-*/
 
 fn one_test_eth_sign(sec_hex: &str, msg_hex: &str, sig_hex: &str) {
     let seckey = secretkey_deserialize_hex_str(&sec_hex);
@@ -142,9 +144,9 @@ fn one_test_eth_sign(sec_hex: &str, msg_hex: &str, sig_hex: &str) {
 fn test_eth_sign() {
     let f = File::open("tests/sign.txt").unwrap();
     let file = BufReader::new(&f);
-	let mut sec_hex = "".to_string();
-	let mut msg_hex = "".to_string();
-	let mut sig_hex;
+    let mut sec_hex = "".to_string();
+    let mut msg_hex = "".to_string();
+    let mut sig_hex;
     for (_, s) in file.lines().enumerate() {
         let line = s.unwrap();
         let v: Vec<&str> = line.split(' ').collect();
@@ -165,10 +167,10 @@ fn test_eth_sign() {
 fn test_eth_aggregate_verify_no_check1() {
     const N: usize = 3;
     const PUB_TBL:[&str;N] = [
-		"a491d1b0ecd9bb917989f0e74f0dea0422eac4a873e5e2644f368dffb9a6e20fd6e10c1b77654d067c0618f6e5a7f79a",
-		"b301803f8b5ac4a1133581fc676dfedc60d891dd5fa99028805e5ea5b08d3491af75d0707adab3b70c6a6a580217bf81",
-		"b53d21a4cfd562c469cc81514d4ce5a6b577d8403d32a394dc265dd190b47fa9f829fdd7963afdf972e5e77854051f6f",
-	];
+        "a491d1b0ecd9bb917989f0e74f0dea0422eac4a873e5e2644f368dffb9a6e20fd6e10c1b77654d067c0618f6e5a7f79a",
+        "b301803f8b5ac4a1133581fc676dfedc60d891dd5fa99028805e5ea5b08d3491af75d0707adab3b70c6a6a580217bf81",
+        "b53d21a4cfd562c469cc81514d4ce5a6b577d8403d32a394dc265dd190b47fa9f829fdd7963afdf972e5e77854051f6f",
+    ];
     const MSG_TBL: [&str; N] = [
         "0000000000000000000000000000000000000000000000000000000000000000",
         "5656565656565656565656565656565656565656565656565656565656565656",
