@@ -162,33 +162,45 @@ fn test_eth_sign() {
     }
 }
 
-/*
 #[test]
 fn test_eth_aggregate_verify_no_check1() {
-    const N: usize = 3;
-    const PUB_TBL:[&str;N] = [
-        "a491d1b0ecd9bb917989f0e74f0dea0422eac4a873e5e2644f368dffb9a6e20fd6e10c1b77654d067c0618f6e5a7f79a",
-        "b301803f8b5ac4a1133581fc676dfedc60d891dd5fa99028805e5ea5b08d3491af75d0707adab3b70c6a6a580217bf81",
-        "b53d21a4cfd562c469cc81514d4ce5a6b577d8403d32a394dc265dd190b47fa9f829fdd7963afdf972e5e77854051f6f",
-    ];
-    const MSG_TBL: [&str; N] = [
-        "0000000000000000000000000000000000000000000000000000000000000000",
-        "5656565656565656565656565656565656565656565656565656565656565656",
-        "abababababababababababababababababababababababababababababababab",
-    ];
-    let sig_hex = "82f5bfe5550ce639985a46545e61d47c5dd1d5e015c1a82e20673698b8e02cde4f81d3d4801f5747ad8cfd7f96a8fe50171d84b5d1e2549851588a5971d52037218d4260b9e4428971a5c1969c65388873f1c49a4c4d513bdf2bc478048a18a8";
-    let sig = signature_deserialize_hex_str(&sig_hex);
-    let mut pubs = [unsafe { PublicKey::uninit() }; N];
-    let mut msg_hex: String = "".to_string();
-    for i in 0..N {
-        pubs[i] = publickey_deserialize_hex_str(&PUB_TBL[i]);
-        msg_hex.push_str(&MSG_TBL[i]);
+    let f = File::open("tests/aggregate_verify.txt").unwrap();
+    let file = BufReader::new(&f);
+    let mut pubs: Vec<PublicKey> = Vec::new();
+    let mut msg: Vec<u8> = Vec::new();
+    let mut sig = unsafe { Signature::uninit() };
+    let mut valid = false;
+
+    let mut i = 0;
+    for (_, s) in file.lines().enumerate() {
+        let line = s.unwrap();
+        let v: Vec<&str> = line.split(' ').collect();
+        match v[0] {
+            "pub" => pubs.push(publickey_deserialize_hex_str(&v[1])),
+            "msg" => {
+                let vv = hex::decode(&v[1]).unwrap();
+                msg.append(&mut vv.clone());
+            }
+            "sig" => {
+                valid = sig.deserialize(&hex::decode(&v[1]).unwrap());
+                if !valid {
+                    println!("bad signature {:?}", &v[1]);
+                }
+            }
+            "out" => {
+                println!("i={:?}", i);
+                if valid {
+                    let out = v[1] == "true";
+                    assert_eq!(sig.aggregate_verify_no_check(&pubs, &msg), out);
+                }
+                pubs.truncate(0);
+                msg.truncate(0);
+                i += 1;
+            }
+            _ => assert!(false),
+        }
     }
-    let msgs = hex::decode(&msg_hex).unwrap();
-    assert!(are_all_msg_different(&msgs, 32));
-    assert!(sig.aggregate_verify_no_check(&pubs, &msgs));
 }
-*/
 
 #[test]
 fn test_fast_aggregate_verify() {
