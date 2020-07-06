@@ -4,18 +4,17 @@ use bls_eth_rust::*;
 use criterion::{black_box, criterion_group, criterion_main, Benchmark, Criterion};
 
 fn signing(c: &mut Criterion) {
-    set_eth_mode(EthModeType::Old);
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
-    let msg = Message::zero();
+    let msg = "abc".as_bytes();
     let pubkey = seckey.get_publickey();
-    let sig = seckey.sign_message(&msg).unwrap();
+    let sig = seckey.sign(&msg);
 
     c.bench(
         "signing",
         Benchmark::new("Create a Signature", move |b| {
             b.iter(|| {
-                black_box(seckey.sign_message(&msg).unwrap());
+                black_box(seckey.sign(&msg));
             })
         })
         .sample_size(10),
@@ -25,7 +24,7 @@ fn signing(c: &mut Criterion) {
         "signing",
         Benchmark::new("Verify a Signature", move |b| {
             b.iter(|| {
-                black_box(sig.verify_message(&pubkey, &msg));
+                black_box(sig.verify(&pubkey, &msg));
             })
         })
         .sample_size(10),
@@ -33,11 +32,10 @@ fn signing(c: &mut Criterion) {
 }
 
 fn compression(c: &mut Criterion) {
-    set_eth_mode(EthModeType::Old);
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
-    let msg = Message::zero();
-    let sig = seckey.sign_message(&msg).unwrap();
+    let msg = "abc".as_bytes();
+    let sig = seckey.sign(&msg);
 
     c.bench(
         "compression",
@@ -66,22 +64,20 @@ fn aggregation(c: &mut Criterion) {
     let mut seckey = unsafe { SecretKey::uninit() };
     seckey.set_by_csprng();
     let pubkey = seckey.get_publickey();
-    let mut msg = Message::zero();
-    msg.hash[0] = 1;
-    let sig = seckey.sign_message(&msg).unwrap();
-    assert!(sig.verify_message(&pubkey, &msg));
+    let msg = "hello".as_bytes();
+    let sig = seckey.sign(&msg);
+    assert!(sig.verify(&pubkey, &msg));
 
     const N: usize = 128;
     let mut pubs = [unsafe { PublicKey::uninit() }; N];
     let mut sigs = [unsafe { Signature::uninit() }; N];
 
-    let mut msgs: [Message; N] = [Message::zero(); N];
+    let mut msgs: Vec<u8> = Vec::with_capacity(32 * N);
     for i in 0..N {
         seckey.set_by_csprng();
         pubs[i] = seckey.get_publickey();
-        msgs[i].hash[0] = i as u8;
-        msgs[i].domain[0] = i as u8;
-        sigs[i] = seckey.sign_message(&msgs[i]).unwrap();
+        msgs[32 * i] = i as u8;
+        sigs[i] = seckey.sign(&msgs[32*i..32*(i+1)]);
     }
     let mut agg_sig = sigs[0];
     let mut agg_pub = pubs[0];
@@ -124,7 +120,7 @@ fn aggregation(c: &mut Criterion) {
         "aggregation",
         Benchmark::new("Verify 128 Public Keys and 128 Messages", move |b| {
             b.iter(|| {
-                black_box(agg_sig.verify_aggregated_message(&pubs[..], &msgs[..]));
+                black_box(agg_sig.aggregate_verify_no_check(&pubs, &msgs));
             })
         })
         .sample_size(10),

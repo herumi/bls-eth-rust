@@ -19,22 +19,6 @@ extern "C" {
     fn blsSecretKeySetByCSPRNG(x: *mut SecretKey);
     fn blsSecretKeySetHexStr(x: *mut SecretKey, buf: *const u8, bufSize: usize) -> c_int;
     fn blsGetPublicKey(y: *mut PublicKey, x: *const SecretKey);
-    fn blsSignHashWithDomain(
-        sig: *mut Signature,
-        seckey: *const SecretKey,
-        msg: *const Message,
-    ) -> c_int;
-    fn blsVerifyHashWithDomain(
-        sig: *const Signature,
-        pubKey: *const PublicKey,
-        msg: *const Message,
-    ) -> c_int;
-    fn blsVerifyAggregatedHashWithDomain(
-        aggSig: *const Signature,
-        pubs: *const PublicKey,
-        msgs: *const Message,
-        n: usize,
-    ) -> c_int;
     fn blsSignatureVerifyOrder(doVerify: c_int);
     fn blsSignatureIsValidOrder(sig: *const Signature) -> c_int;
     fn blsPublicKeyVerifyOrder(doVerify: c_int);
@@ -113,13 +97,6 @@ const MCLBN_FR_UNIT_SIZE: usize = 4;
 const BLS_COMPILER_TIME_VAR_ADJ: usize = 200;
 const MCLBN_COMPILED_TIME_VAR: c_int =
     (MCLBN_FR_UNIT_SIZE * 10 + MCLBN_FP_UNIT_SIZE + BLS_COMPILER_TIME_VAR_ADJ) as c_int;
-
-/// not used in eth2.0
-pub const HASH_SIZE: usize = 32;
-/// not used in eth2.0
-pub const DOMAIN_SIZE: usize = 8;
-/// not used in eth2.0
-pub const HASH_AND_DOMAIN_SIZE: usize = HASH_SIZE + DOMAIN_SIZE;
 
 /// message is 32 byte in eth2.0
 pub const MSG_SIZE: usize = 32;
@@ -245,23 +222,6 @@ pub fn set_eth_mode(mode: EthModeType) -> bool {
     unsafe { blsSetETHmode(mode as c_int) == 0 }
 }
 
-/// not used in eth2.0
-#[derive(Default, Debug, Clone, Copy)]
-#[repr(C)]
-pub struct Message {
-    pub hash: [u8; HASH_SIZE],
-    pub domain: [u8; DOMAIN_SIZE],
-}
-
-impl Message {
-    pub fn zero() -> Message {
-        Default::default()
-    }
-    pub unsafe fn uninit() -> Message {
-        std::mem::MaybeUninit::uninit().assume_init()
-    }
-}
-
 /// secret key type
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
@@ -349,19 +309,6 @@ impl SecretKey {
         }
         v
     }
-    /// not used in eth2.0
-    pub fn sign_message(&self, msg: &Message) -> Result<Signature, BlsError> {
-        INIT.call_once(|| {
-            init_library();
-        });
-        let mut v = unsafe { Signature::uninit() };
-        unsafe {
-            if blsSignHashWithDomain(&mut v, self, msg) == 0 {
-                return Ok(v);
-            }
-        }
-        Err(BlsError::InternalError)
-    }
     /// return the signature of `msg`
     /// * `msg` - message
     pub fn sign(&self, msg: &[u8]) -> Signature {
@@ -395,24 +342,6 @@ impl PublicKey {
 }
 
 impl Signature {
-    /// not used in eth2.0
-    pub fn verify_message(&self, pubkey: *const PublicKey, msg: &Message) -> bool {
-        INIT.call_once(|| {
-            init_library();
-        });
-        unsafe { blsVerifyHashWithDomain(self, pubkey, msg) == 1 }
-    }
-    /// not used in eth2.0
-    pub fn verify_aggregated_message(&self, pubkeys: &[PublicKey], msgs: &[Message]) -> bool {
-        INIT.call_once(|| {
-            init_library();
-        });
-        let n = pubkeys.len();
-        if msgs.len() != n {
-            return false;
-        }
-        unsafe { blsVerifyAggregatedHashWithDomain(self, pubkeys.as_ptr(), msgs.as_ptr(), n) == 1 }
-    }
     /// return true if `self` is valid signature of `msg` for `pubkey`
     /// `pubkey` - public key
     /// `msg` - message
