@@ -1,6 +1,7 @@
 //! bls-eth-rust is a library to support BLS signature for Ethereum 2.0 Phase 0
 
 //use std::mem::MaybeUninit;
+use rand::prelude::*;
 use std::collections::HashSet;
 use std::os::raw::c_int;
 use std::sync::Once;
@@ -31,6 +32,16 @@ extern "C" {
         pubkey: *const PublicKey,
         msg: *const u8,
         msgSize: usize,
+    ) -> c_int;
+    fn blsMultiVerify(
+        sig: *const Signature,
+        pubkey: *const PublicKey,
+        msg: *const u8,
+        msgSize: usize,
+        randVec: *const u64,
+        randSize: usize,
+        n: usize,
+        threadN: i32,
     ) -> c_int;
     fn blsAggregateSignature(aggSig: *mut Signature, sigVec: *const Signature, n: usize);
     fn blsFastAggregateVerify(
@@ -417,5 +428,34 @@ impl Signature {
     /// * `msgs` - concatenated byte `pubs.len()` array of 32-byte messages
     pub fn aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8]) -> bool {
         self.inner_aggregate_verify(pubs, msgs, true)
+    }
+}
+
+/// return true if all sigs are valid
+/// * `msgs` - concatenated byte `pubs.len()` array of 32-byte messages
+pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool {
+    INIT.call_once(|| {
+        init_library();
+    });
+    let n = sigs.len();
+    if n == 0 || pubs.len() != n || msgs.len() != n * MSG_SIZE {
+        return false;
+    }
+    let mut rng = rand::thread_rng();
+    let mut rands: Vec<u64> = Vec::with_capacity(n);
+    for i in 0..n {
+        rands[i] = rng.gen::<u64>();
+    }
+    unsafe {
+        blsMultiVerify(
+            sigs.as_ptr(),
+            pubs.as_ptr(),
+            msgs.as_ptr(),
+            MSG_SIZE,
+            rands.as_ptr(),
+            8, /* sizeof(uint64_t) */
+            n,
+            num_cpus::get() as i32,
+        ) == 1
     }
 }

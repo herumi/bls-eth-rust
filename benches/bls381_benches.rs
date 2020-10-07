@@ -77,7 +77,7 @@ fn aggregation(c: &mut Criterion) {
         seckey.set_by_csprng();
         pubs[i] = seckey.get_publickey();
         msgs[32 * i] = i as u8;
-        sigs[i] = seckey.sign(&msgs[32*i..32*(i+1)]);
+        sigs[i] = seckey.sign(&msgs[32 * i..32 * (i + 1)]);
     }
     let mut agg_sig = sigs[0];
     let mut agg_pub = pubs[0];

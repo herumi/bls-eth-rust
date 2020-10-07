@@ -14,3 +14,5 @@ harness = false
 [dependencies]
 criterion = "0.3.0"
 hex = "0.4.0"
+rand = "0.7"
+num_cpus = "1.13.0"
