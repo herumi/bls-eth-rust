@@ -442,7 +442,8 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
         return false;
     }
     let mut rng = rand::thread_rng();
-    let mut rands: Vec<u64> = Vec::with_capacity(n);
+    let mut rands: Vec<u64> = Vec::new();
+    rands.resize_with(n, Default::default);
     for i in 0..n {
         rands[i] = rng.gen::<u64>();
     }

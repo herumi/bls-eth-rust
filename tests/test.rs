@@ -212,20 +212,25 @@ fn test_fast_aggregate_verify() {
     }
 }
 
-fn one_test_eth_aggregate_verify_no_check(n: usize) {
-    const MSG_SIZE: usize = 32;
+fn make_multi_sig(n: usize, msg_size: usize) -> (Vec<PublicKey>, Vec<Signature>, Vec<u8>) {
     let mut pubs: Vec<PublicKey> = Vec::new();
     let mut sigs: Vec<Signature> = Vec::new();
     let mut msgs: Vec<u8> = Vec::new();
-    msgs.resize_with(n * MSG_SIZE, Default::default);
+    msgs.resize_with(n * msg_size, Default::default);
     for i in 0..n {
         let mut sec: SecretKey = unsafe { SecretKey::uninit() };
         sec.set_by_csprng();
         pubs.push(sec.get_publickey());
-        msgs[MSG_SIZE * i] = i as u8;
-        let sig = sec.sign(&msgs[i * MSG_SIZE..(i + 1) * MSG_SIZE]);
+        msgs[msg_size * i] = i as u8;
+        let sig = sec.sign(&msgs[i * msg_size..(i + 1) * msg_size]);
         sigs.push(sig);
     }
+    (pubs, sigs, msgs)
+}
+
+fn one_test_eth_aggregate_verify_no_check(n: usize) {
+    const MSG_SIZE: usize = 32;
+    let (pubs, sigs, mut msgs) = make_multi_sig(n, MSG_SIZE);
     assert!(are_all_msg_different(&msgs, MSG_SIZE));
     let mut agg_sig = unsafe { Signature::uninit() };
     agg_sig.aggregate(&sigs);
@@ -252,4 +257,19 @@ fn test_eth_draft07() {
     let sig = seckey.sign("asdf".as_bytes());
     let sig_hex = "b45a264e0d6f8614c4640ea97bae13effd3c74c4e200e3b1596d6830debc952602a7d210eca122dc4f596fa01d7f6299106933abd29477606f64588595e18349afe22ecf2aeeeb63753e88a42ef85b24140847e05620a28422f8c30f1d33b9aa";
     assert_eq!(signature_serialize_to_hex_str(&sig), sig_hex);
+}
+
+fn test_multi_verify_one(n: usize) {
+    const MSG_SIZE: usize = 32;
+    let (pubs, sigs, mut msgs) = make_multi_sig(n, MSG_SIZE);
+    assert!(multi_verify(&sigs, &pubs, &msgs));
+    msgs[1] = 1;
+    assert!(!multi_verify(&sigs, &pubs, &msgs));
+}
+
+#[test]
+fn test_multi_verify() {
+    for n in [1, 2, 3, 15, 40, 400].iter() {
+        test_multi_verify_one(*n);
+    }
 }
