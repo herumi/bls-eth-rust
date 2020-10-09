@@ -8,7 +8,7 @@ edition = "2018"
 repository = "https://github.com/herumi/bls-eth-rust"
 
 [[bench]]
-name = "bls381_benches"
+name = "multi_verify_benches"
 harness = false
 
 [dependencies]
