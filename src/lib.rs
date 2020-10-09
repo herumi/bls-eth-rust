@@ -5,6 +5,7 @@ use rand::prelude::*;
 use std::collections::HashSet;
 use std::os::raw::c_int;
 use std::sync::Once;
+//use std::thread;
 
 #[link(name = "bls384_256", kind = "static")]
 #[link(name = "stdc++")]
@@ -486,6 +487,7 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
         let mut et: [GT; MAX_THREAD_N] = unsafe { [GT::uninit(); MAX_THREAD_N] };
         let mut agg_sigt: [Signature; MAX_THREAD_N] =
             unsafe { [Signature::uninit(); MAX_THREAD_N] };
+//		let mut handles = vec![];
         let block_n = n / MIN_N;
         let q = block_n / thread_n;
         let mut r = block_n % thread_n;
@@ -504,6 +506,24 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
             if i == thread_n - 1 {
                 m = n - pos;
             }
+/*
+			let handle = thread::spawn(move|| {
+				unsafe {
+	                blsMultiVerifySub(
+	                    &mut et[i],
+	                    &mut agg_sigt[i],
+	                    sigs[pos..].as_ptr(),
+	                    pubs[pos..].as_ptr(),
+	                    msgs[pos * MSG_SIZE..].as_ptr(),
+	                    MSG_SIZE,
+	                    rands[pos..].as_ptr(),
+	                    8,
+	                    m,
+	                );
+				}
+			});
+			handles.push(handle);
+*/
             unsafe {
                 blsMultiVerifySub(
                     &mut et[i],
@@ -519,6 +539,11 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
             }
             pos = pos + m;
         }
+/*
+		for handle in handles {
+			handle.join().unwrap();
+		}
+*/
         e = et[0];
         agg_sig = agg_sigt[0];
         for i in 1..thread_n {
@@ -543,18 +568,4 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
         }
     }
     unsafe { blsMultiVerifyFinal(&e, &agg_sig) == 1 }
-    /*
-        unsafe {
-            blsMultiVerify(
-                sigs.as_ptr(),
-                pubs.as_ptr(),
-                msgs.as_ptr(),
-                MSG_SIZE,
-                rands.as_ptr(),
-                8, /* sizeof(uint64_t) */
-                n,
-                thread_n as i32,
-            ) == 1
-        }
-    */
 }
