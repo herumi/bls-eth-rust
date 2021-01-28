@@ -33,7 +33,21 @@ extern "C" {
         msg: *const u8,
         msgSize: usize,
     ) -> c_int;
-    fn blsMultiVerify(
+    /*
+        fn blsMultiVerify(
+            sig: *const Signature,
+            pubkey: *const PublicKey,
+            msg: *const u8,
+            msgSize: usize,
+            randVec: *const u64,
+            randSize: usize,
+            n: usize,
+            threadN: i32,
+        ) -> c_int;
+    */
+    fn blsMultiVerifySub(
+        e: *mut GT,
+        sig: *mut Signature,
         sig: *const Signature,
         pubkey: *const PublicKey,
         msg: *const u8,
@@ -41,8 +55,8 @@ extern "C" {
         randVec: *const u64,
         randSize: usize,
         n: usize,
-        threadN: i32,
-    ) -> c_int;
+    );
+    fn blsMultiVerifyFinal(e: *const GT, sig: *const Signature) -> c_int;
     fn blsAggregateSignature(aggSig: *mut Signature, sigVec: *const Signature, n: usize);
     fn blsFastAggregateVerify(
         sig: *const Signature,
@@ -74,6 +88,9 @@ extern "C" {
     fn blsPublicKeyAdd(pubkey: *mut PublicKey, x: *const PublicKey);
     fn blsSignatureAdd(sig: *mut Signature, x: *const Signature);
     fn mclBnFr_isZero(x: *const SecretKey) -> i32;
+
+    fn mclBnGT_mul(z: *mut GT, x: *const GT, y: *const GT);
+    fn mclBnGT_isEqual(lhs: *const GT, rhs: *const GT) -> i32;
 }
 
 enum CurveType {
@@ -259,6 +276,16 @@ pub struct Signature {
     z: [u64; MCLBN_FP_UNIT_SIZE * 2],
 }
 
+/// GT type
+#[derive(Default, Debug, Clone, Copy)]
+#[repr(C)]
+pub struct GT {
+    d0: [u64; MCLBN_FP_UNIT_SIZE * 4],
+    d1: [u64; MCLBN_FP_UNIT_SIZE * 4],
+    d2: [u64; MCLBN_FP_UNIT_SIZE * 4],
+}
+common_impl![GT, mclBnGT_isEqual];
+
 common_impl![SecretKey, blsSecretKeyIsEqual];
 serialize_impl![
     SecretKey,
@@ -443,20 +470,92 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
         return false;
     }
     let mut rng = rand::thread_rng();
-    let mut rands: Vec<u64> = Vec::with_capacity(n);
+    let mut rands: Vec<u64> = Vec::new();
+    let mut thread_n = num_cpus::get();
+    rands.resize_with(n, Default::default);
     for i in 0..n {
         rands[i] = rng.gen::<u64>();
     }
-    unsafe {
-        blsMultiVerify(
-            sigs.as_ptr(),
-            pubs.as_ptr(),
-            msgs.as_ptr(),
-            MSG_SIZE,
-            rands.as_ptr(),
-            8, /* sizeof(uint64_t) */
-            n,
-            num_cpus::get() as i32,
-        ) == 1
+    let mut e = unsafe { GT::uninit() };
+    let mut agg_sig = unsafe { Signature::uninit() };
+    const MAX_THREAD_N: usize = 32;
+    if thread_n > MAX_THREAD_N {
+        thread_n = MAX_THREAD_N;
     }
+    const MIN_N: usize = 3;
+    if thread_n > 1 && n >= MIN_N {
+        let mut et: [GT; MAX_THREAD_N] = unsafe { [GT::uninit(); MAX_THREAD_N] };
+        let mut agg_sigt: [Signature; MAX_THREAD_N] =
+            unsafe { [Signature::uninit(); MAX_THREAD_N] };
+        let block_n = n / MIN_N;
+        let q = block_n / thread_n;
+        let mut r = block_n % thread_n;
+        let mut pos = 0;
+        for i in 0..thread_n {
+            let mut m = q;
+            if r > 0 {
+                m = m + 1;
+                r = r - 1;
+            }
+            if m == 0 {
+                thread_n = i;
+                break;
+            }
+            m *= MIN_N;
+            if i == thread_n - 1 {
+                m = n - pos;
+            }
+            unsafe {
+                blsMultiVerifySub(
+                    &mut et[i],
+                    &mut agg_sigt[i],
+                    sigs[pos..].as_ptr(),
+                    pubs[pos..].as_ptr(),
+                    msgs[pos * MSG_SIZE..].as_ptr(),
+                    MSG_SIZE,
+                    rands[pos..].as_ptr(),
+                    8,
+                    m,
+                );
+            }
+            pos = pos + m;
+        }
+        e = et[0];
+        agg_sig = agg_sigt[0];
+        for i in 1..thread_n {
+            unsafe {
+                mclBnGT_mul(&mut e, &e, &et[i]);
+                agg_sig.add_assign(&agg_sigt[i]);
+            }
+        }
+    } else {
+        unsafe {
+            blsMultiVerifySub(
+                &mut e,
+                &mut agg_sig,
+                sigs.as_ptr(),
+                pubs.as_ptr(),
+                msgs.as_ptr(),
+                MSG_SIZE,
+                rands.as_ptr(),
+                8, /* sizeof(uint64_t) */
+                n,
+            );
+        }
+    }
+    unsafe { blsMultiVerifyFinal(&e, &agg_sig) == 1 }
+    /*
+        unsafe {
+            blsMultiVerify(
+                sigs.as_ptr(),
+                pubs.as_ptr(),
+                msgs.as_ptr(),
+                MSG_SIZE,
+                rands.as_ptr(),
+                8, /* sizeof(uint64_t) */
+                n,
+                thread_n as i32,
+            ) == 1
+        }
+    */
 }
