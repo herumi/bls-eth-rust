@@ -172,7 +172,8 @@ macro_rules! serialize_impl {
                 INIT.call_once(|| {
                     init_library();
                 });
-                unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
+                let n = unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) };
+                return n > 0 && n == buf.len();
             }
             /// return deserialized `buf`
             pub fn from_serialized(buf: &[u8]) -> Result<$t, BlsError> {
