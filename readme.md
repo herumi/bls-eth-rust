@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.org/herumi/bls-eth-rust.png)](https://travis-ci.org/herumi/bls-eth-rust)
+[![Build Status](https://api.travis-ci.com/herumi/bls-eth-rust.svg?branch=master)](https://travis-ci.com/github/herumi/bls-eth-rust)
+
 # bls-eth for Rust
 
 This is a wrapper library of [bls](https://github.com/herumi/bls/) with `BLS_ETH=1`.
