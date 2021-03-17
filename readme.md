@@ -43,6 +43,12 @@ cd bls-eth-rust
 env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo test -- --test-threads 1
 ```
 
+For windows,
+```
+set RUSTFLAGS=-L../bls-eth-go-binary/bls/lib/windows/amd64
+cargo test --target=x86_64-pc-windows-gnu
+```
+
 # How to run benchs
 
 ```
