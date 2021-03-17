@@ -7,7 +7,6 @@ use std::os::raw::c_int;
 use std::sync::Once;
 
 #[link(name = "bls384_256", kind = "static")]
-#[link(name = "stdc++")]
 #[allow(non_snake_case)]
 extern "C" {
     // global functions
