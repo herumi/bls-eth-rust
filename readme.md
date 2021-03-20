@@ -44,6 +44,21 @@ env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo test -- --test
 ```
 
 For windows,
+
+## msvc
+
+```
+mkdir work
+git clone https://github.com/herumi/bls
+git clone https://github.com/herumi/bls-eth-rust
+cd bls
+mklib eth
+cd ../bls-eth-rust
+set RUSTLFAGS=-L../bls/lib
+cargo test --target=x86_64-pc-windows-msvc
+```
+## gnu
+
 ```
 set RUSTFLAGS=-L../bls-eth-go-binary/bls/lib/windows/amd64
 cargo test --target=x86_64-pc-windows-gnu
