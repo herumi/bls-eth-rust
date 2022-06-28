@@ -524,8 +524,8 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
         for i in 1..thread_n {
             unsafe {
                 mclBnGT_mul(&mut e, &e, &et[i]);
-                agg_sig.add_assign(&agg_sigt[i]);
             }
+            agg_sig.add_assign(&agg_sigt[i]);
         }
     } else {
         unsafe {
