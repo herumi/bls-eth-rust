@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.org/herumi/bls-eth-rust.png)](https://travis-ci.org/herumi/bls-eth-rust)
+[![Build Status](https://github.com/herumi/bls-eth-rust/actions/workflows/main.yml/badge.svg)](https://github.com/herumi/bls-eth-rust/actions/workflows/main.yml)
+
 # bls-eth for Rust
 
 This is a wrapper library of [bls](https://github.com/herumi/bls/) with `BLS_ETH=1`.
@@ -40,6 +41,27 @@ git clone https://github.com/herumi/bls-eth-go-binary
 git clone https://github.com/herumi/bls-eth-rust
 cd bls-eth-rust
 env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo test -- --test-threads 1
+```
+
+For windows,
+
+## msvc
+
+```
+mkdir work
+git clone https://github.com/herumi/bls
+git clone https://github.com/herumi/bls-eth-rust
+cd bls
+mklib eth
+cd ../bls-eth-rust
+set RUSTLFAGS=-L../bls/lib
+cargo test --target=x86_64-pc-windows-msvc
+```
+## gnu
+
+```
+set RUSTFLAGS=-L../bls-eth-go-binary/bls/lib/windows/amd64
+cargo test --target=x86_64-pc-windows-gnu
 ```
 
 # How to run benchs

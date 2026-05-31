@@ -8,7 +8,6 @@ use std::sync::Once;
 //use std::thread;
 
 #[link(name = "bls384_256", kind = "static")]
-#[link(name = "stdc++")]
 #[allow(non_snake_case)]
 extern "C" {
     // global functions
@@ -190,7 +189,8 @@ macro_rules! serialize_impl {
                 INIT.call_once(|| {
                     init_library();
                 });
-                unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
+                let n = unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) };
+                return n > 0 && n == buf.len();
             }
             /// return deserialized `buf`
             pub fn from_serialized(buf: &[u8]) -> Result<$t, BlsError> {
@@ -549,8 +549,8 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
         for i in 1..thread_n {
             unsafe {
                 mclBnGT_mul(&mut e, &e, &et[i]);
-                agg_sig.add_assign(&agg_sigt[i]);
             }
+            agg_sig.add_assign(&agg_sigt[i]);
         }
     } else {
         unsafe {

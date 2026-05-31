@@ -7,12 +7,12 @@ license = "BSD-3-Clause OR MIT OR Apache-2.0"
 edition = "2018"
 repository = "https://github.com/herumi/bls-eth-rust"
 
-[[bench]]
-name = "multi_verify_benches"
-harness = false
+#[[bench]]
+#name = "multi_verify_benches"
+#harness = false
 
 [dependencies]
-criterion = "0.3.0"
+#criterion = "0.3.0"
 hex = "0.4.0"
 rand = "0.7"
 num_cpus = "1.13.0"
