@@ -37,7 +37,12 @@ cargo test
 
 ## Windows (MSVC)
 
-Open a Developer Command Prompt (or run `vcvars64.bat`) so that `cl` and `lib` are in PATH.
+**You must build from a Developer Command Prompt for VS**, so that MSVC tools (`cl`, `lib`, `link`) take priority in PATH.
+
+How to open one:
+- Start menu → search **"Developer Command Prompt for VS 20xx"**, or
+- Run `vcvars64.bat` in an existing prompt (e.g. `"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"`).
+
 Install nasm for x86-64 environments.
 `build.rs` automatically runs `mklib.bat eth` inside the `bls` directory to produce `bls/lib/bls384_256.lib`.
 
@@ -45,6 +50,24 @@ Install nasm for x86-64 environments.
 git submodule update --init --recursive
 cargo test
 ```
+
+### Troubleshooting: wrong `link.exe` is used
+
+If you see an error like `link: missing operand` or `bls384_256.dll not found`, Git for Windows' `link.exe` may be shadowing MSVC's `link.exe`.
+
+Check which `link.exe` is found first:
+
+```
+where link.exe
+```
+
+The first line must point to the MSVC linker, e.g.:
+
+```
+C:\Program Files\Microsoft Visual Studio\...\VC\Tools\MSVC\...\bin\HostX64\x64\link.exe
+```
+
+If instead it shows `C:\Program Files\Git\usr\bin\link.exe` first, open a Developer Command Prompt as described above and try again. The VS environment script ensures MSVC tools precede Git tools in PATH.
 
 ## Windows (GNU / MinGW)
 

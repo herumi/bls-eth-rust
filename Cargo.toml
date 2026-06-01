@@ -1,6 +1,6 @@
 [package]
 name = "bls_eth_rust"
-version = "0.0.2"
+version = "0.1.0"
 authors = ["MITSUNARI Shigeo <herumi@nifty.com>"]
 description = "BLS signature library for Ethereum 2.0"
 license = "BSD-3-Clause OR MIT OR Apache-2.0"
