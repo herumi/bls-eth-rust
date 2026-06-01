@@ -1,7 +1,5 @@
-extern crate criterion;
-
 use bls_eth_rust::*;
-use criterion::{black_box, criterion_group, criterion_main, Benchmark, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn signing(c: &mut Criterion) {
     let mut seckey = unsafe { SecretKey::uninit() };
@@ -10,25 +8,18 @@ fn signing(c: &mut Criterion) {
     let pubkey = seckey.get_publickey();
     let sig = seckey.sign(&msg);
 
-    c.bench(
-        "signing",
-        Benchmark::new("Create a Signature", move |b| {
-            b.iter(|| {
-                black_box(seckey.sign(&msg));
-            })
-        })
-        .sample_size(10),
-    );
+    let mut group = c.benchmark_group("signing");
+    group.sample_size(10);
 
-    c.bench(
-        "signing",
-        Benchmark::new("Verify a Signature", move |b| {
-            b.iter(|| {
-                black_box(sig.verify(&pubkey, &msg));
-            })
-        })
-        .sample_size(10),
-    );
+    group.bench_function("Create a Signature", |b| {
+        b.iter(|| black_box(seckey.sign(&msg)))
+    });
+
+    group.bench_function("Verify a Signature", |b| {
+        b.iter(|| black_box(sig.verify(&pubkey, &msg)))
+    });
+
+    group.finish();
 }
 
 fn compression(c: &mut Criterion) {
@@ -36,27 +27,20 @@ fn compression(c: &mut Criterion) {
     seckey.set_by_csprng();
     let msg = "abc".as_bytes();
     let sig = seckey.sign(&msg);
-
-    c.bench(
-        "compression",
-        Benchmark::new("Serialize a Signature", move |b| {
-            b.iter(|| {
-                black_box(sig.serialize());
-            })
-        })
-        .sample_size(10),
-    );
-
     let s = sig.serialize();
-    c.bench(
-        "compression",
-        Benchmark::new("Decompress a Signature", move |b| {
-            b.iter(|| {
-                black_box(Signature::from_serialized(&s).unwrap());
-            })
-        })
-        .sample_size(10),
-    );
+
+    let mut group = c.benchmark_group("compression");
+    group.sample_size(10);
+
+    group.bench_function("Serialize a Signature", |b| {
+        b.iter(|| black_box(sig.serialize()))
+    });
+
+    group.bench_function("Decompress a Signature", |b| {
+        b.iter(|| black_box(Signature::from_serialized(&s).unwrap()))
+    });
+
+    group.finish();
 }
 
 fn aggregation(c: &mut Criterion) {
@@ -72,7 +56,7 @@ fn aggregation(c: &mut Criterion) {
     let mut pubs = [unsafe { PublicKey::uninit() }; N];
     let mut sigs = [unsafe { Signature::uninit() }; N];
 
-    let mut msgs: Vec<u8> = Vec::with_capacity(32 * N);
+    let mut msgs: Vec<u8> = vec![0u8; 32 * N];
     for i in 0..N {
         seckey.set_by_csprng();
         pubs[i] = seckey.get_publickey();
@@ -87,44 +71,36 @@ fn aggregation(c: &mut Criterion) {
     }
 
     let mut tmp_agg_sig = sigs[0];
-    c.bench(
-        "aggregation",
-        Benchmark::new("Aggregate 128 Signatures", move |b| {
-            b.iter(|| {
-                black_box({
-                    for i in 1..N {
-                        tmp_agg_sig.add_assign(&sigs[i])
-                    }
-                });
-            })
-        })
-        .sample_size(10),
-    );
-
     let mut tmp_agg_pub = pubs[0];
-    c.bench(
-        "aggregation",
-        Benchmark::new("Aggregate 128 Public Keys", move |b| {
-            b.iter(|| {
-                black_box({
-                    for i in 1..N {
-                        tmp_agg_pub.add_assign(&pubs[i])
-                    }
-                });
-            })
-        })
-        .sample_size(10),
-    );
 
-    c.bench(
-        "aggregation",
-        Benchmark::new("Verify 128 Public Keys and 128 Messages", move |b| {
-            b.iter(|| {
-                black_box(agg_sig.aggregate_verify_no_check(&pubs, &msgs));
+    let mut group = c.benchmark_group("aggregation");
+    group.sample_size(10);
+
+    group.bench_function("Aggregate 128 Signatures", |b| {
+        b.iter(|| {
+            black_box({
+                for i in 1..N {
+                    tmp_agg_sig.add_assign(&sigs[i])
+                }
             })
         })
-        .sample_size(10),
-    );
+    });
+
+    group.bench_function("Aggregate 128 Public Keys", |b| {
+        b.iter(|| {
+            black_box({
+                for i in 1..N {
+                    tmp_agg_pub.add_assign(&pubs[i])
+                }
+            })
+        })
+    });
+
+    group.bench_function("Verify 128 Public Keys and 128 Messages", |b| {
+        b.iter(|| black_box(agg_sig.aggregate_verify_no_check(&pubs, &msgs)))
+    });
+
+    group.finish();
 }
 
 criterion_group!(benches, signing, compression, aggregation);

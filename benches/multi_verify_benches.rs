@@ -1,7 +1,5 @@
-extern crate criterion;
-
 use bls_eth_rust::*;
-use criterion::{black_box, criterion_group, criterion_main, Benchmark, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 const MSG_SIZE: usize = 32;
 
@@ -34,33 +32,23 @@ pub fn naieve_multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) 
     return true;
 }
 
-fn multi_verify1(c: &mut Criterion) {
+fn multi_verify(c: &mut Criterion) {
     let (pubs, sigs, msgs) = make_multi_sig(400, MSG_SIZE);
+    let (pubs2, sigs2, msgs2) = make_multi_sig(400, MSG_SIZE);
 
-    c.bench(
-        "multi_verify",
-        Benchmark::new("naieve", move |b| {
-            b.iter(|| {
-                black_box(naieve_multi_verify(&sigs, &pubs, &msgs));
-            })
-        })
-        .sample_size(10),
-    );
+    let mut group = c.benchmark_group("multi_verify");
+    group.sample_size(10);
+
+    group.bench_function("naieve", |b| {
+        b.iter(|| black_box(naieve_multi_verify(&sigs, &pubs, &msgs)))
+    });
+
+    group.bench_function("multi_thread", |b| {
+        b.iter(|| black_box(bls_eth_rust::multi_verify(&sigs2, &pubs2, &msgs2)))
+    });
+
+    group.finish();
 }
 
-fn multi_verify2(c: &mut Criterion) {
-    let (pubs, sigs, msgs) = make_multi_sig(400, MSG_SIZE);
-
-    c.bench(
-        "multi_verify",
-        Benchmark::new("multi_thread", move |b| {
-            b.iter(|| {
-                black_box(multi_verify(&sigs, &pubs, &msgs));
-            })
-        })
-        .sample_size(10),
-    );
-}
-
-criterion_group!(benches, multi_verify1, multi_verify2);
+criterion_group!(benches, multi_verify);
 criterion_main!(benches);
