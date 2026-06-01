@@ -5,7 +5,7 @@ use rand::prelude::*;
 use std::collections::HashSet;
 use std::os::raw::c_int;
 use std::sync::LazyLock;
-//use std::thread;
+use std::thread;
 
 #[link(name = "bls384_256", kind = "static")]
 #[allow(non_snake_case)]
@@ -449,69 +449,81 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
     }
     const MIN_N: usize = 3;
     if thread_n > 1 && n >= MIN_N {
-        let mut et: [GT; MAX_THREAD_N] = unsafe { [GT::uninit(); MAX_THREAD_N] };
-        let mut agg_sigt: [Signature; MAX_THREAD_N] =
-            unsafe { [Signature::uninit(); MAX_THREAD_N] };
-//		let mut handles = vec![];
-        let block_n = n / MIN_N;
-        let q = block_n / thread_n;
-        let mut r = block_n % thread_n;
-        let mut pos = 0;
-        for i in 0..thread_n {
-            let mut m = q;
-            if r > 0 {
-                m = m + 1;
-                r = r - 1;
-            }
-            if m == 0 {
-                thread_n = i;
-                break;
-            }
-            m *= MIN_N;
-            if i == thread_n - 1 {
-                m = n - pos;
-            }
-/*
-			let handle = thread::spawn(move|| {
-				unsafe {
-	                blsMultiVerifySub(
-	                    &mut et[i],
-	                    &mut agg_sigt[i],
-	                    sigs[pos..].as_ptr(),
-	                    pubs[pos..].as_ptr(),
-	                    msgs[pos * MSG_SIZE..].as_ptr(),
-	                    MSG_SIZE,
-	                    rands[pos..].as_ptr(),
-	                    8,
-	                    m,
-	                );
-				}
-			});
-			handles.push(handle);
-*/
-            unsafe {
-                blsMultiVerifySub(
-                    &mut et[i],
-                    &mut agg_sigt[i],
-                    sigs[pos..].as_ptr(),
-                    pubs[pos..].as_ptr(),
-                    msgs[pos * MSG_SIZE..].as_ptr(),
-                    MSG_SIZE,
-                    rands[pos..].as_ptr(),
-                    8,
-                    m,
-                );
-            }
-            pos = pos + m;
+        // Pre-compute (pos, m) per thread before spawning
+        struct SendArgs {
+            et: *mut GT,
+            agg_sigt: *mut Signature,
+            sigs: *const Signature,
+            pubs: *const PublicKey,
+            msgs: *const u8,
+            rands: *const u64,
+            m: usize,
         }
-/*
-		for handle in handles {
-			handle.join().unwrap();
-		}
-*/
+        // Safety: each thread accesses disjoint output slots and read-only inputs
+        // that outlive the thread::scope below.
+        unsafe impl Send for SendArgs {}
+
+        let mut tasks: Vec<(usize, usize)> = Vec::new(); // (pos, m)
+        {
+            let block_n = n / MIN_N;
+            let q = block_n / thread_n;
+            let mut r = block_n % thread_n;
+            let mut pos = 0;
+            for i in 0..thread_n {
+                let mut m = q;
+                if r > 0 {
+                    m += 1;
+                    r -= 1;
+                }
+                if m == 0 {
+                    break;
+                }
+                m *= MIN_N;
+                if i == thread_n - 1 {
+                    m = n - pos;
+                }
+                tasks.push((pos, m));
+                pos += m;
+            }
+        }
+        let actual_thread_n = tasks.len();
+        let mut et: Vec<GT> = (0..actual_thread_n)
+            .map(|_| unsafe { GT::uninit() })
+            .collect();
+        let mut agg_sigt: Vec<Signature> = (0..actual_thread_n)
+            .map(|_| unsafe { Signature::uninit() })
+            .collect();
+
+        thread::scope(|s| {
+            for (i, &(pos, m)) in tasks.iter().enumerate() {
+                let args = SendArgs {
+                    et: &mut et[i] as *mut GT,
+                    agg_sigt: &mut agg_sigt[i] as *mut Signature,
+                    sigs: sigs[pos..].as_ptr(),
+                    pubs: pubs[pos..].as_ptr(),
+                    msgs: msgs[pos * MSG_SIZE..].as_ptr(),
+                    rands: rands[pos..].as_ptr(),
+                    m,
+                };
+                s.spawn(move || unsafe {
+                    blsMultiVerifySub(
+                        args.et,
+                        args.agg_sigt,
+                        args.sigs,
+                        args.pubs,
+                        args.msgs,
+                        MSG_SIZE,
+                        args.rands,
+                        8,
+                        args.m,
+                    );
+                });
+            }
+        });
+
         e = et[0];
         agg_sig = agg_sigt[0];
-        for i in 1..thread_n {
+        for i in 1..actual_thread_n {
             unsafe {
                 mclBnGT_mul(&mut e, &e, &et[i]);
             }
