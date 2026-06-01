@@ -434,12 +434,12 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
     if n == 0 || pubs.len() != n || msgs.len() != n * MSG_SIZE {
         return false;
     }
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut rands: Vec<u64> = Vec::new();
     let mut thread_n = num_cpus::get();
     rands.resize_with(n, Default::default);
     for i in 0..n {
-        rands[i] = rng.gen::<u64>();
+        rands[i] = rng.random::<u64>();
     }
     let mut e = unsafe { GT::uninit() };
     let mut agg_sig = unsafe { Signature::uninit() };
