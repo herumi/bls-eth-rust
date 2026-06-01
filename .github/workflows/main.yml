@@ -6,8 +6,7 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-#    - run: sudo apt install wget
-    - run: wget https://github.com/herumi/bls-eth-go-binary/raw/master/bls/lib/linux/amd64/libbls384_256.a
-    - run: env RUSTFLAGS="-L./" cargo test --verbose
+    - uses: actions/checkout@v6
+    - run: sudo apt install nasm
+    - run: git submodule update --init --recursive ; cargo test --verbose
 

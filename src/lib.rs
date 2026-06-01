@@ -4,7 +4,8 @@
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::os::raw::c_int;
-use std::sync::Once;
+use std::sync::LazyLock;
+//use std::thread;
 
 #[link(name = "bls384_256", kind = "static")]
 #[allow(non_snake_case)]
@@ -128,14 +129,9 @@ const MCLBN_COMPILED_TIME_VAR: c_int =
 /// message is 32 byte in eth2.0
 pub const MSG_SIZE: usize = 32;
 
-// Used to call blsInit only once.
-static INIT: Once = Once::new();
-fn init_library() {
+static INIT: LazyLock<()> = LazyLock::new(|| {
     init(CurveType::BLS12_381);
-    //#[cfg(feature = "latest")]
-    set_eth_mode(EthModeType::Draft07);
-    //verify_signature_order(true);
-}
+});
 
 /// return true if `size`-byte splitted `msgs` are different each other
 /// * `msgs` - an array that `size`-byte messages are concatenated
@@ -159,9 +155,7 @@ macro_rules! common_impl {
         impl PartialEq for $t {
             /// return true if `self` is equal to `rhs`
             fn eq(&self, rhs: &Self) -> bool {
-                INIT.call_once(|| {
-                    init_library();
-                });
+                LazyLock::force(&INIT);
                 unsafe { $is_equal_fn(self, rhs) == 1 }
             }
         }
@@ -172,6 +166,8 @@ macro_rules! common_impl {
                 Default::default()
             }
             /// return uninitialized instance
+            /// Safety: caller must ensure the FFI function initializes the value before any Rust read
+            #[allow(invalid_value)]
             pub unsafe fn uninit() -> $t {
                 std::mem::MaybeUninit::uninit().assume_init()
             }
@@ -185,9 +181,7 @@ macro_rules! serialize_impl {
             /// return true if `buf` is deserialized successfully
             /// * `buf` - serialized data by `serialize`
             pub fn deserialize(&mut self, buf: &[u8]) -> bool {
-                INIT.call_once(|| {
-                    init_library();
-                });
+                LazyLock::force(&INIT);
                 let n = unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) };
                 return n > 0 && n == buf.len();
             }
@@ -201,9 +195,7 @@ macro_rules! serialize_impl {
             }
             /// return serialized byte array
             pub fn serialize(&self) -> Vec<u8> {
-                INIT.call_once(|| {
-                    init_library();
-                });
+                LazyLock::force(&INIT);
 
                 let size = unsafe { $size } as usize;
                 let mut buf: Vec<u8> = Vec::with_capacity(size);
@@ -312,9 +304,7 @@ serialize_impl![
 impl SecretKey {
     /// init secret key by CSPRNG
     pub fn set_by_csprng(&mut self) {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         unsafe { blsSecretKeySetByCSPRNG(self) }
         let ret = unsafe { mclBnFr_isZero(self) };
         if ret == 1 {
@@ -323,9 +313,7 @@ impl SecretKey {
     }
     /// set hexadecimal string `s` to `self`
     pub fn set_hex_str(&mut self, s: &str) -> bool {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         unsafe { blsSecretKeySetHexStr(self, s.as_ptr(), s.len()) == 0 }
     }
     /// return the secret key set by hexadecimal string `s`
@@ -338,9 +326,7 @@ impl SecretKey {
     }
     /// return the public key corresponding to `self`
     pub fn get_publickey(&self) -> PublicKey {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         let mut v = unsafe { PublicKey::uninit() };
         unsafe {
             blsGetPublicKey(&mut v, self);
@@ -350,9 +336,7 @@ impl SecretKey {
     /// return the signature of `msg`
     /// * `msg` - message
     pub fn sign(&self, msg: &[u8]) -> Signature {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         let mut v = unsafe { Signature::uninit() };
         unsafe { blsSign(&mut v, self, msg.as_ptr(), msg.len()) }
         v
@@ -363,18 +347,14 @@ impl PublicKey {
     /// add `x` to `self`
     /// * `x` - signature to be added
     pub fn add_assign(&mut self, x: *const PublicKey) {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         unsafe {
             blsPublicKeyAdd(self, x);
         }
     }
     /// return true if `self` has the valid order
     pub fn is_valid_order(&self) -> bool {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         unsafe { blsPublicKeyIsValidOrder(self) == 1 }
     }
 }
@@ -384,34 +364,26 @@ impl Signature {
     /// `pubkey` - public key
     /// `msg` - message
     pub fn verify(&self, pubkey: *const PublicKey, msg: &[u8]) -> bool {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         unsafe { blsVerify(self, pubkey, msg.as_ptr(), msg.len()) == 1 }
     }
     /// add `x` to `self`
     /// * `x` - signature to be added
     pub fn add_assign(&mut self, x: *const Signature) {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         unsafe {
             blsSignatureAdd(self, x);
         }
     }
     /// return true if `self` has the valid order
     pub fn is_valid_order(&self) -> bool {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         unsafe { blsSignatureIsValidOrder(self) == 1 }
     }
     /// set the aggregated signature of `sigs`
     /// * `sigs` - signatures to be aggregated
     pub fn aggregate(&mut self, sigs: &[Signature]) {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         unsafe {
             blsAggregateSignature(self, sigs.as_ptr(), sigs.len());
         }
@@ -420,9 +392,7 @@ impl Signature {
     /// * `pubs` - array of public key
     /// * `msg` - message
     pub fn fast_aggregate_verify(&self, pubs: &[PublicKey], msg: &[u8]) -> bool {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         if pubs.len() == 0 {
             return false;
         }
@@ -431,9 +401,7 @@ impl Signature {
         }
     }
     fn inner_aggregate_verify(&self, pubs: &[PublicKey], msgs: &[u8], check_message: bool) -> bool {
-        INIT.call_once(|| {
-            init_library();
-        });
+        LazyLock::force(&INIT);
         let n = pubs.len();
         if n == 0 || n * MSG_SIZE != msgs.len() {
             return false;
@@ -461,9 +429,7 @@ impl Signature {
 /// return true if all sigs are valid
 /// * `msgs` - concatenated byte `pubs.len()` array of 32-byte messages
 pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool {
-    INIT.call_once(|| {
-        init_library();
-    });
+    LazyLock::force(&INIT);
     let n = sigs.len();
     if n == 0 || pubs.len() != n || msgs.len() != n * MSG_SIZE {
         return false;
@@ -486,6 +452,7 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
         let mut et: [GT; MAX_THREAD_N] = unsafe { [GT::uninit(); MAX_THREAD_N] };
         let mut agg_sigt: [Signature; MAX_THREAD_N] =
             unsafe { [Signature::uninit(); MAX_THREAD_N] };
+//		let mut handles = vec![];
         let block_n = n / MIN_N;
         let q = block_n / thread_n;
         let mut r = block_n % thread_n;
@@ -504,6 +471,24 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
             if i == thread_n - 1 {
                 m = n - pos;
             }
+/*
+			let handle = thread::spawn(move|| {
+				unsafe {
+	                blsMultiVerifySub(
+	                    &mut et[i],
+	                    &mut agg_sigt[i],
+	                    sigs[pos..].as_ptr(),
+	                    pubs[pos..].as_ptr(),
+	                    msgs[pos * MSG_SIZE..].as_ptr(),
+	                    MSG_SIZE,
+	                    rands[pos..].as_ptr(),
+	                    8,
+	                    m,
+	                );
+				}
+			});
+			handles.push(handle);
+*/
             unsafe {
                 blsMultiVerifySub(
                     &mut et[i],
@@ -519,6 +504,11 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
             }
             pos = pos + m;
         }
+/*
+		for handle in handles {
+			handle.join().unwrap();
+		}
+*/
         e = et[0];
         agg_sig = agg_sigt[0];
         for i in 1..thread_n {
@@ -543,18 +533,4 @@ pub fn multi_verify(sigs: &[Signature], pubs: &[PublicKey], msgs: &[u8]) -> bool
         }
     }
     unsafe { blsMultiVerifyFinal(&e, &agg_sig) == 1 }
-    /*
-        unsafe {
-            blsMultiVerify(
-                sigs.as_ptr(),
-                pubs.as_ptr(),
-                msgs.as_ptr(),
-                MSG_SIZE,
-                rands.as_ptr(),
-                8, /* sizeof(uint64_t) */
-                n,
-                thread_n as i32,
-            ) == 1
-        }
-    */
 }
