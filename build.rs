@@ -5,9 +5,12 @@ use std::process::Command;
 fn main() {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let bls_dir = manifest_dir.join("bls");
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
     // Build the static library via the submodule's Makefile.
     // `make` handles incremental builds internally, so we always invoke it.
+    // Pass OUT_DIR so the library is written into Cargo's output directory,
+    // which means `cargo clean` will remove it and force a rebuild next time.
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
 
     let mut cmd = Command::new("make");
@@ -15,7 +18,8 @@ fn main() {
         .arg(&bls_dir)
         .arg("-f")
         .arg("Makefile.onelib")
-        .arg("ETH_CFLAGS=-DBLS_ETH");
+        .arg("ETH_CFLAGS=-DBLS_ETH")
+        .arg(format!("OUT_DIR={}", out_dir.display()));
 
     if target_arch != "x86_64" {
         cmd.arg("CXX=clang++");
@@ -50,8 +54,8 @@ fn main() {
     };
 
     // The Makefile places the library at:
-    //   <bls_dir>/bls/lib/<os>/<arch>/libbls384_256.a
-    let lib_dir = bls_dir.join("bls").join("lib").join(os_dir).join(arch_dir);
+    //   <out_dir>/bls/lib/<os>/<arch>/libbls384_256.a
+    let lib_dir = out_dir.join("bls").join("lib").join(os_dir).join(arch_dir);
 
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
 }
