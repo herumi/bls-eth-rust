@@ -4,13 +4,10 @@
 
 This is a wrapper library of [bls](https://github.com/herumi/bls/) with `BLS_ETH=1`.
 
-# How to build `libbls384_256.a`
-
-copy from [bls-eth-go-binary/bls/lib](https://github.com/herumi/bls-eth-go-binary/tree/master/bls/lib) or build it at yourself according to [readme.md](https://github.com/herumi/bls-eth-go-binary#how-to-build-the-static-binary).
-
 # News
-- 2020/May/19 : The default hash function has change to the function defined at [BLS12381G2_XMD:SHA-256_SSWU_RO_](https://www.ietf.org/id/draft-irtf-cfrg-hash-to-curve-07.html#name-bls12381g2_xmdsha-256_sswu_).
-- The default hash function has changed to the function defined at [draft-irtf-cfrg-hash-to-curve](https://cfrg.github.io/draft-irtf-cfrg-hash-to-curve/draft-irtf-cfrg-hash-to-curve.txt).
+- 2020/May/19 : The default hash function has changed to the function defined at [draft-irtf-cfrg-hash-to-curve](https://cfrg.github.io/draft-irtf-cfrg-hash-to-curve/draft-irtf-cfrg-hash-to-curve.txt) ([BLS12381G2_XMD:SHA-256_SSWU_RO_](https://www.ietf.org/id/draft-irtf-cfrg-hash-to-curve-07.html#name-bls12381g2_xmdsha-256_sswu_)).
+
+# API
 
 bls-eth-rust | old eth2.0 spec name|
 ------|-----------------|
@@ -21,53 +18,68 @@ Signature::fast_aggregate_verify|FastAggregateVerify|
 Signature::aggregate_verify_no_check|AggregateVerify|
 
 Check functions:
-- verify_signature_order ; make `deserialize` check the correctness of the order
-- Signature::is_valid_order ; check the correctness of the order
-- verify_publickey_order ; make `deserialize` check the correctness of the order
-- PublicKey::is_valid_order ; check the correctness of the order
-- are_all_msg_different ; check that all messages are different each other
-# How to test
+- `verify_signature_order` -- make `deserialize` check the correctness of the order
+- `Signature::is_valid_order` -- check the correctness of the order
+- `verify_publickey_order` -- make `deserialize` check the correctness of the order
+- `PublicKey::is_valid_order` -- check the correctness of the order
+- `are_all_msg_different` -- check that all messages are different from each other
+
+# How to build and test
+
+## Linux / macOS
+
+Install nasm for x86-64 environments.
 
 ```
-env RUSTFLAGS="-L<directory of libbls384_256.a>" cargo test
+git submodule update --init --recursive
+cargo test
 ```
 
-For example, on Linux,
+## Windows (MSVC)
+
+**You must build from a Developer Command Prompt for VS**, so that MSVC tools (`cl`, `lib`, `link`) take priority in PATH.
+
+How to open one:
+- Start menu → search **"Developer Command Prompt for VS 20xx"**, or
+- Run `vcvars64.bat` in an existing prompt (e.g. `"C:\Program Files\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvars64.bat"`).
+
+Install nasm for x86-64 environments.
+`build.rs` automatically runs `mklib.bat eth` inside the `bls` directory to produce `bls/lib/bls384_256.lib`.
 
 ```
-mkdir work
-cd work
-git clone https://github.com/herumi/bls-eth-go-binary
-git clone https://github.com/herumi/bls-eth-rust
-cd bls-eth-rust
-env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo test -- --test-threads 1
+git submodule update --init --recursive
+cargo test
 ```
 
-For windows,
+### Troubleshooting: wrong `link.exe` is used
 
-## msvc
+If you see an error like `link: missing operand` or `bls384_256.dll not found`, Git for Windows' `link.exe` may be shadowing MSVC's `link.exe`.
+
+Check which `link.exe` is found first:
 
 ```
-mkdir work
-git clone https://github.com/herumi/bls
-git clone https://github.com/herumi/bls-eth-rust
-cd bls
-mklib eth
-cd ../bls-eth-rust
-set RUSTLFAGS=-L../bls/lib
-cargo test --target=x86_64-pc-windows-msvc
+where link.exe
 ```
-## gnu
+
+The first line must point to the MSVC linker, e.g.:
+
+```
+C:\Program Files\Microsoft Visual Studio\...\VC\Tools\MSVC\...\bin\HostX64\x64\link.exe
+```
+
+If instead it shows `C:\Program Files\Git\usr\bin\link.exe` first, open a Developer Command Prompt as described above and try again. The VS environment script ensures MSVC tools precede Git tools in PATH.
+
+## Windows (GNU / MinGW)
 
 ```
 set RUSTFLAGS=-L../bls-eth-go-binary/bls/lib/windows/amd64
 cargo test --target=x86_64-pc-windows-gnu
 ```
 
-# How to run benchs
+# How to run benchmarks
 
 ```
-env RUSTFLAGS="-L../bls-eth-go-binary/bls/lib/linux/amd64/" cargo bench
+cargo bench
 ```
 
 # License
