@@ -54,12 +54,4 @@ fn main() {
     let lib_dir = bls_dir.join("bls").join("lib").join(os_dir).join(arch_dir);
 
     println!("cargo:rustc-link-search=native={}", lib_dir.display());
-
-    // The C++ runtime must also be linked because the BLS/MCL library is C++.
-    match target_os.as_str() {
-        "linux" => println!("cargo:rustc-link-lib=stdc++"),
-        "macos" => println!("cargo:rustc-link-lib=c++"),
-        "freebsd" | "openbsd" => println!("cargo:rustc-link-lib=c++"),
-        _ => {}
-    }
 }
